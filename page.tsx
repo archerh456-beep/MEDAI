@@ -1,14 +1,9 @@
-import { getDb, getCurrentUser } from '@/lib/db';
-import ArenaClient from './ArenaClient';
+import AiTutorClient from './AiTutorClient';
 
-export default async function ArenaPage() {
-  const db = await getDb();
-  const currentUser = await getCurrentUser();
-  const battle = db.arenaBattles[0];
-
+export default function AiTutorPage() {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <ArenaClient battle={battle} allUsers={db.users} currentUser={currentUser} />
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <AiTutorClient />
     </div>
   );
 }
