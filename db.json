@@ -1,0 +1,934 @@
+{
+  "users": [
+    {
+      "id": "dev_archerh456",
+      "name": "Archerhood (المطور والمسؤول الأكاديمي العام)",
+      "studentId": "MED-DEV-01",
+      "email": "archerh456@gmail.com",
+      "password": "developer123",
+      "role": "DEVELOPER",
+      "level": "CONSULTANT",
+      "academicYear": "استشاري وأستاذ أكاديمي",
+      "university": "كلية الطب - المشرف الأكاديمي العام",
+      "points": 9500,
+      "rank": 1,
+      "streak": 29,
+      "avatar": "https://api.dicebear.com/7.x/bottts/svg?seed=archerh456@gmail.com",
+      "cognitiveScores": {
+        "foundational": 96,
+        "clinicalReasoning": 94,
+        "pharmacology": 92,
+        "emergencySpeed": 98,
+        "evidenceBased": 95,
+        "pathophysiology": 96,
+        "diagnosticsLab": 95,
+        "evidenceEthics": 95
+      },
+      "badges": [
+        "master_diagnostician",
+        "emergency_hero",
+        "ecg_guru",
+        "code_architect",
+        "curriculum_lead"
+      ],
+      "googleId": "g_1029384756"
+    },
+    {
+      "id": "user_1790067531625",
+      "name": "د. خالد الدوسري",
+      "email": "khaled.d@gmail.com",
+      "studentId": "MED-2024-888",
+      "academicYear": "السنة الثالثة",
+      "university": "جامعة الملك فيصل",
+      "password": "password123",
+      "role": "STUDENT",
+      "level": "STUDENT",
+      "points": 0,
+      "rank": 6,
+      "streak": 0,
+      "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=khaled.d%40gmail.com",
+      "cognitiveScores": {
+        "foundational": 0,
+        "clinicalReasoning": 0,
+        "pharmacology": 0,
+        "emergencySpeed": 0,
+        "evidenceBased": 0,
+        "pathophysiology": 0,
+        "diagnosticsLab": 0,
+        "evidenceEthics": 0
+      },
+      "badges": []
+    },
+    {
+      "id": "user_1790164566488",
+      "name": "محمد خالد ابراهيم",
+      "email": "archerm962@gmail.com",
+      "studentId": "2411007670",
+      "academicYear": "السنة الثانية",
+      "university": "جامعة دنقلا",
+      "password": "pasword123",
+      "role": "STUDENT",
+      "level": "STUDENT",
+      "points": 0,
+      "rank": 3,
+      "streak": 1,
+      "avatar": "https://api.dicebear.com/7.x/adventurer/svg?seed=archerm962%40gmail.com",
+      "cognitiveScores": {
+        "foundational": 0,
+        "clinicalReasoning": 0,
+        "pharmacology": 0,
+        "pathophysiology": 0,
+        "diagnosticsLab": 0,
+        "emergencySpeed": 0,
+        "evidenceEthics": 0
+      },
+      "badges": []
+    }
+  ],
+  "courses": [
+    {
+      "id": "cardio_101",
+      "title": "أمراض وجراحة القلب والأوعية الدموية (Cardiology)",
+      "category": "INTERNAL_MEDICINE",
+      "year": "السنوات السريرية (3-5)",
+      "level": "CLINICAL",
+      "icon": "❤️",
+      "badge": "مقرر أساسي",
+      "description": "منهج متكامل يشمل الفيزيولوجيا المرضية للقلب، قراءة وتفسير تخطيط القلب (ECG)، متلازمات الشريان التاجي الحادة، وقصور القلب الاحتقاني.",
+      "estimatedHours": 18,
+      "studentsCount": 420,
+      "rating": 4.9,
+      "modules": [
+        {
+          "id": "m1",
+          "title": "مقدمة ومحاور تخطيط القلب الكهربائي (ECG Interpretation Made Easy)",
+          "duration": "45 دقيقة",
+          "type": "VIDEO_INTERACTIVE"
+        },
+        {
+          "id": "m2",
+          "title": "متلازمة الشريان التاجي الحادة (ACS: STEMI vs NSTEMI)",
+          "duration": "60 دقيقة",
+          "type": "CLINICAL_SIM"
+        },
+        {
+          "id": "m3",
+          "title": "فشل القلب الحاد والمزمن (Heart Failure: HFrEF vs HFpEF)",
+          "duration": "50 دقيقة",
+          "type": "LECTURE"
+        },
+        {
+          "id": "m4",
+          "title": "أدوية القلب والعناية المركزة (Inotropes, Beta-Blockers & ACEi)",
+          "duration": "40 دقيقة",
+          "type": "PHARMACOLOGY"
+        }
+      ]
+    },
+    {
+      "id": "emergency_201",
+      "title": "طب الطوارئ والعناية الحرجة (Emergency Medicine & Resuscitation)",
+      "category": "EMERGENCY",
+      "year": "السنوات السريرية والامتياز",
+      "level": "ADVANCED",
+      "icon": "⚡",
+      "badge": "تحديات سريرية",
+      "description": "بروتوكولات الإنعاش المتقدم (ACLS & ATLS)، فرز الحالات الحرجة (Triage)، والتعامل الفوري مع الصدمات ونقص الأكسجة والحوادث.",
+      "estimatedHours": 22,
+      "studentsCount": 380,
+      "rating": 4.95,
+      "modules": [
+        {
+          "id": "em1",
+          "title": "بروتوكول الإنعاش القلبي الرئوي المتقدم (ACLS 2026 Guidelines)",
+          "duration": "55 دقيقة",
+          "type": "ALGORITHM"
+        },
+        {
+          "id": "em2",
+          "title": "أنواع الصدمة الحادة والإنعاش بالسوائل (Shock Protocols & Vasopressors)",
+          "duration": "65 دقيقة",
+          "type": "CLINICAL_SIM"
+        },
+        {
+          "id": "em3",
+          "title": "إدارة مجرى الهواء الحرج (Difficult Airway Management & RSI)",
+          "duration": "45 دقيقة",
+          "type": "PROCEDURAL"
+        }
+      ]
+    },
+    {
+      "id": "anatomy_neuro",
+      "title": "التشريح السريري للجهاز العصبي (Clinical Neuroanatomy)",
+      "category": "BASIC_SCIENCE",
+      "year": "السنة الثانية",
+      "level": "FOUNDATIONAL",
+      "icon": "🧠",
+      "badge": "أطلس بصري",
+      "description": "استكشاف فصوص الدماغ، الجذع الدماغي، النخاع الشوكي، والأعصاب القحفية مع ربط الآفات العصبية بأعراض الشلل والحس السريرية.",
+      "estimatedHours": 16,
+      "studentsCount": 510,
+      "rating": 4.85,
+      "modules": [
+        {
+          "id": "an1",
+          "title": "أطلس الدماغ التفاعلي وتوزيع التروية الشريانية (Circle of Willis)",
+          "duration": "50 دقيقة",
+          "type": "3D_ATLAS"
+        },
+        {
+          "id": "an2",
+          "title": "الأعصاب القحفية وفحصها السريري (Cranial Nerves I - XII)",
+          "duration": "60 دقيقة",
+          "type": "EXAM_GUIDE"
+        },
+        {
+          "id": "an3",
+          "title": "مسارات النخاع الشوكي ومتلازمات الشلل (Spinal Tracts & Lesions)",
+          "duration": "40 دقيقة",
+          "type": "DIAGNOSTIC"
+        }
+      ]
+    },
+    {
+      "id": "biochem_metabolism",
+      "title": "الكيمياء الحيوية السريرية والاستقلاب (Clinical Biochemistry)",
+      "category": "BASIC_SCIENCE",
+      "year": "السنة الأولى والثانية",
+      "level": "FOUNDATIONAL",
+      "icon": "🧬",
+      "badge": "مسارات تفاعلية",
+      "description": "استقلاب الكربوهيدرات والدهون والبروتينات، دورة كريبس، وأمراض التخزين الاستقلابي والأخطاء الوراثية في التمثيل الغذائي.",
+      "estimatedHours": 14,
+      "studentsCount": 630,
+      "rating": 4.8,
+      "modules": [
+        {
+          "id": "bc1",
+          "title": "تحلل السكر وتوليد الجلوكوز (Glycolysis & Gluconeogenesis Pathway)",
+          "duration": "45 دقيقة",
+          "type": "INTERACTIVE_PATHWAY"
+        },
+        {
+          "id": "bc2",
+          "title": "الحماض الكيتوني السكري واستقلاب الأجسام الكيتونية (DKA Biochemistry)",
+          "duration": "50 دقيقة",
+          "type": "CASE_BASED"
+        }
+      ]
+    },
+    {
+      "id": "pharma_antimicrobial",
+      "title": "علم الأدوية السريري والمضادات الحيوية (Clinical Pharmacology)",
+      "category": "PHARMACOLOGY",
+      "year": "السنة الثالثة والسريرية",
+      "level": "CORE",
+      "icon": "💊",
+      "badge": "أمان دوائي",
+      "description": "دليل المضادات الحيوية الشامل، آليات المقاومة البكتيرية، الجرعات في القصور الكلوي والكبدي، والتداخلات الدوائية الحرجة.",
+      "estimatedHours": 20,
+      "studentsCount": 490,
+      "rating": 4.9,
+      "modules": [
+        {
+          "id": "ph1",
+          "title": "مضادات بيتا لاكتام (Penicillins, Cephalosporins & Carbapenems)",
+          "duration": "60 دقيقة",
+          "type": "HIGH_YIELD"
+        },
+        {
+          "id": "ph2",
+          "title": "مضادات الجراثيم المقاومة (MRSA, Pseudomonas & ESBL)",
+          "duration": "55 دقيقة",
+          "type": "GUIDELINES"
+        }
+      ]
+    },
+    {
+      "title": "علم الأمراض السريري (Pathology)",
+      "category": "BASIC_SCIENCE",
+      "year": "السنة الثانية",
+      "level": "CORE",
+      "icon": "🔬",
+      "badge": "مقرر أساسي",
+      "description": "آليات الالتهاب والأورام والأمراض الخلوية.",
+      "estimatedHours": 16,
+      "modules": [
+        {
+          "id": "m_1",
+          "title": "مقدمة في الموت الخلوي والالتهاب",
+          "duration": "45 دقيقة",
+          "type": "LECTURE"
+        }
+      ],
+      "id": "course_1790066787714",
+      "studentsCount": 0,
+      "rating": 5
+    }
+  ],
+  "clinicalCases": [
+    {
+      "id": "case_ami_01",
+      "title": "ألم حاد بالصدر وضيق تنفس لدى مدخن يبلغ 58 عاماً",
+      "specialty": "أمراض القلب والطوارئ",
+      "difficulty": "متوسط إلى متقدم",
+      "pointsReward": 250,
+      "patientProfile": {
+        "name": "أبو فهد",
+        "age": 58,
+        "gender": "ذكر",
+        "chiefComplaint": "ألم ساحق خلف عظمة القص بدأ منذ ساعتين ويمتد للكتف والفك الأيسر مع تعرق بارد وغثيان.",
+        "history": "مدخن لمدة 30 عاماً (40 pack-years)، مصاب بارتفاع ضغط الدم غير منضبط، لا يلتزم بالأدوية.",
+        "vitals": {
+          "bloodPressure": "158/96 mmHg",
+          "heartRate": "104 bpm",
+          "respiratoryRate": "22 /min",
+          "oxygenSaturation": "93% Room Air",
+          "temperature": "37.1 °C"
+        }
+      },
+      "ecgSnippet": "ST elevation > 2mm in leads V1, V2, V3, V4 with reciprocal ST depression in II, III, aVF.",
+      "steps": [
+        {
+          "stepIndex": 1,
+          "prompt": "المريض يصل قسم الطوارئ الآن متألماً بشدة. ما هو الإجراء الفوري الأول الأكثر أولوية خلال أول 10 دقائق؟",
+          "options": [
+            {
+              "id": "opt_a",
+              "text": "إجراء تخطيط قلب 12-Lead ECG فوري وتركيب أكسجين مع إعطاء أسبرين 324mg للمضغ",
+              "isCorrect": true,
+              "explanation": "صحيح جداً! بروتوكول MONA/Door-to-ECG يقتضي عمل تخطيط خلال 10 دقائق من الوصول وإعطاء الأسبرين المضاد للصفائح."
+            },
+            {
+              "id": "opt_b",
+              "text": "طلب تصوير طبقي محوري للصدر CT Angiography لاستبعاد تسلخ الأبهر فوراً",
+              "isCorrect": false,
+              "explanation": "خاطئ: يؤخر التشخيص الحاسم للاحتشاء القلبي الحاد، والأولوية هي ECG السريع بجانب السرير."
+            },
+            {
+              "id": "opt_c",
+              "text": "إعطاء حقنة مورفين عضلية وإرساله لغرفة الملاحظة حتى وصول نتائج إنزيمات القلب",
+              "isCorrect": false,
+              "explanation": "خاطئ: الحقن العضلي ممنوع لمرضى الجلطات ويشوه قراءة الإنزيمات، ولا ننتظر نتائج المختبر عند وجود أعراض نموذجية."
+            }
+          ]
+        },
+        {
+          "stepIndex": 2,
+          "prompt": "أظهر تخطيط القلب ارتفاعاً واضحاً لقطعة ST في V1-V4 (Anterior STEMI). ما هو التشخيص الدقيق والشريان المسبب على الأرجح؟",
+          "options": [
+            {
+              "id": "opt_a",
+              "text": "احتشاء جدار أمامي حاد (Anterior STEMI) - انسداد الشريان التاجي الأيسر النازل LAD",
+              "isCorrect": true,
+              "explanation": "أحسنت! مساري V1-V4 تعكس الجدار الأمامي والحاجز القلبي الذي يرويه شريان LAD (الشهير بـ Widow Maker)."
+            },
+            {
+              "id": "opt_b",
+              "text": "احتشاء جدار سفلي حاد (Inferior STEMI) - انسداد الشريان التاجي الأيمن RCA",
+              "isCorrect": false,
+              "explanation": "خاطئ: الجدار السفلي ينعكس في المساري II, III, aVF."
+            },
+            {
+              "id": "opt_c",
+              "text": "التهاب التامور الحاد (Acute Pericarditis) - ارتفاع منتشر بدون انخفاض متبادل",
+              "isCorrect": false,
+              "explanation": "خاطئ: وجود الانخفاض المتبادل (Reciprocal depression) وتحديد المساري يثبت الاحتشاء الشرياني التاجي الحاد."
+            }
+          ]
+        },
+        {
+          "stepIndex": 3,
+          "prompt": "المستشفى مجهز بمختبر قسطرة قلبية (Cath Lab). ما هو التدبير النهائي الأمثل الموصى به عالمياً والحد الزمني المستهدف؟",
+          "options": [
+            {
+              "id": "opt_a",
+              "text": "القسطرة التداخلية الأولية (Primary PCI) في غضون أقل من 90 دقيقة (Door-to-Balloon)",
+              "isCorrect": true,
+              "explanation": "ممتاز! Primary PCI هو الخيار الذهبي الأول لفتح الشريان المسدود خلال 90 دقيقة من الوصول."
+            },
+            {
+              "id": "opt_b",
+              "text": "إعطاء مذيب خثرة وريدي (tPA) والانتظار 24 ساعة لتقييم الحاجة للقسطرة",
+              "isCorrect": false,
+              "explanation": "خاطئ: مذيبات الخثرة تستخدم فقط إذا كان وقت النقل لمختبر القسطرة يتجاوز 120 دقيقة."
+            },
+            {
+              "id": "opt_c",
+              "text": "المعالجة المحافظة بنيتروجليسرين وريدي ومضادات التخثر فقط دون تدخل جراحي",
+              "isCorrect": false,
+              "explanation": "خاطئ: تأخير فتح الشريان يؤدي لتموت عضلة القلب ومضاعفات مميتة."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "case_dka_02",
+      "title": "تشوش ذهني وتنفس سريع ورائحة أسيتون لدى شابة مصابة بسكري النمط الأول",
+      "specialty": "الغدد الصماء والباطنة",
+      "difficulty": "متوسط",
+      "pointsReward": 220,
+      "patientProfile": {
+        "name": "ريم",
+        "age": 22,
+        "gender": "أنثى",
+        "chiefComplaint": "استفراغ متكرر، آلام بطنية حادة، عطش شديد وخمول بدأ منذ يومين بعد إصابتها بالتهاب مسالك بولية.",
+        "history": "تشخيص سكري النمط الأول (T1DM) منذ 7 سنوات، أوقفت جرعات الإنسولين لأنها لم تكن تأكل بسبب الغثيان.",
+        "vitals": {
+          "bloodPressure": "92/58 mmHg",
+          "heartRate": "122 bpm",
+          "respiratoryRate": "30 /min (Kussmaul breathing)",
+          "oxygenSaturation": "97%",
+          "temperature": "38.2 °C"
+        }
+      },
+      "labResults": "سكر الدم: 480 mg/dL | غازات الدم الشرياني: pH 7.15, HCO3: 10 mEq/L | فجوة الصواعد Anion Gap: 22 | البوتاسيوم: 4.8 mEq/L",
+      "steps": [
+        {
+          "stepIndex": 1,
+          "prompt": "ما هو الخطوة السريرية الأولى والأهم في إنقاذ هذه المريضة قبل بدء ضخ الإنسولين؟",
+          "options": [
+            {
+              "id": "opt_a",
+              "text": "الإنعاش السريع بالسوائل الوريدية المتوازنة (Normal Saline 0.9% بمعدل 1 لتر/ساعة)",
+              "isCorrect": true,
+              "explanation": "صحيح تماماً! تصحيح الجفاف الشديد والصدمة بنقص الحجم هو الأولوية القصوى، والبدء بالإنسولين قبل السوائل قد يسبب انهياراً دورياً."
+            },
+            {
+              "id": "opt_b",
+              "text": "إعطاء بلعة إنسولين سريعة عالية الوريد فورا لخفض السكر لأقل من 200",
+              "isCorrect": false,
+              "explanation": "خاطئ: يؤدي لانخفاض حاد في حجم البلازما وهبوط البوتاسيوم الخطير."
+            },
+            {
+              "id": "opt_c",
+              "text": "إعطاء بيكربونات الصوديوم وريدياً لتعديل حموضة الدم فوراً",
+              "isCorrect": false,
+              "explanation": "خاطئ: البيكربونات لا تستخدم روتينياً إلا في الحماض الشديد جداً (pH < 6.9) لما لها من مخاطر نقص بوتاسيوم وحماض متناقض بالجهاز العصبي."
+            }
+          ]
+        },
+        {
+          "stepIndex": 2,
+          "prompt": "أثناء علاج الحماض الكيتوني، ما هو المعيار الذهبي لإيقاف ضخ الإنسولين الوريدي والانتقال للإنسولين تحت الجلد؟",
+          "options": [
+            {
+              "id": "opt_a",
+              "text": "انغلاق فجوة الصواعد (Resolution of Anion Gap < 12) واستعادة pH > 7.30 مع قدرة المريض على الأكل",
+              "isCorrect": true,
+              "explanation": "دقيق جداً! الهدف من علاج DKA هو إيقاف الكيتوزيز وانغلاق فجوة الصواعد وليس مجرد انخفاض رقم سكر الدم."
+            },
+            {
+              "id": "opt_b",
+              "text": "مجرد وصول سكر الدم إلى 180 mg/dL حتى لو كانت الفجوة مرتفعة",
+              "isCorrect": false,
+              "explanation": "خاطئ: سكر الدم ينخفض قبل زوال الكيتونات، وإيقاف الإنسولين مبكراً يؤدي لنكسة حادة."
+            },
+            {
+              "id": "opt_c",
+              "text": "اختفاء الأسيتون من فحص البول بالشرائط الكاشفة",
+              "isCorrect": false,
+              "explanation": "خاطئ: شرائط البول تقيس الأسيتواسيتات وقد تبقى إيجابية لأيام بعد شفاء المريضة."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "case_stroke",
+      "title": "سكتة دماغية إقفارية حادة وبروتوكول إذابة الخثرة (Code Stroke Protocol)",
+      "specialty": "طب الأعصاب وطب الطوارئ",
+      "difficulty": "متقدم",
+      "pointsReward": 300,
+      "patientProfile": {
+        "name": "أبو أحمد",
+        "age": 64,
+        "gender": "ذكر",
+        "chiefComplaint": "ثقل مفاجئ في حركة الذراع والساق اليمنى مع صعوبة شديدة في نطق الكلام بدأت قبل 80 دقيقة.",
+        "history": "تاريخ مرضي لارتفاع ضغط الدم والرجفان الأذيني (AFib) غير منتظم على مميعات الدم.",
+        "vitals": {
+          "bloodPressure": "188/108 mmHg",
+          "heartRate": "92 bpm",
+          "respiratoryRate": "18 /min",
+          "oxygenSaturation": "98%",
+          "temperature": "36.9 °C"
+        }
+      },
+      "ecgSnippet": "رجفان أذيني منتظم الاستجابة (Atrial Fibrillation with Controlled Ventricular Response).",
+      "labResults": "سكر الدم السريع: 135 mg/dL. الصفائح: 240,000. زمن INR: 1.1. الأشعة المقطعية للرأس (NCCT): لا يوجد نزف داخل القحف.",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "prompt": "المريض وصل خلال النافذة الزمنية الذهبية (أقل من 3 ساعات). ضغط دمه 188/108 mmHg والأشعة نفت النزف. ما هي الخطوة الحاسمة الأولى قبل بدء مذيب الخثرة (Alteplase)؟",
+          "options": [
+            {
+              "id": "opt_s1",
+              "text": "خفض ضغط الدم بحذر إلى أقل من 185/110 mmHg باستخدام Labetalol وريدياً.",
+              "isCorrect": true,
+              "explanation": "إعطاء مذيب الخثرة (tPA) يتطلب إلزامياً أن يكون ضغط الدم أقل من 185/110 mmHg لتجنب التحول النزفي المميت (Hemorrhagic Transformation)."
+            },
+            {
+              "id": "opt_s2",
+              "text": "إعطاء جرعة فورية من الأسبرين 300 mg ومذيب الخثرة دون النظر لضغط الدم.",
+              "isCorrect": false,
+              "explanation": "يُمنع إعطاء مضادات الصفيحات (الأسبرين) خلال أول 24 ساعة من إعطاء tPA لتجنب النزف الدماغي."
+            },
+            {
+              "id": "opt_s3",
+              "text": "الانتظار لمدة ساعتين حتى ينخفض ضغط الدم تلقائياً.",
+              "isCorrect": false,
+              "explanation": "الوقت هو الدماغ (Time is Brain). كل دقيقة تأخير تعني موت مليوني خلية عصبية."
+            }
+          ]
+        },
+        {
+          "stepIndex": 1,
+          "prompt": "تم خفض الضغط إلى 174/98 mmHg. بدأ المريض بحقن Alteplase الوريدي. كشف تصوير الأوعية (CTA) عن انسداد في الشريان المخي الأوسط القريب (M1-MCA). ما هو الإجراء الإضافي الموصى به؟",
+          "options": [
+            {
+              "id": "opt_s4",
+              "text": "استدعاء فريق القسطرة العصبية التداخلية لاستئصال الخثرة ميكانيكياً (Endovascular Thrombectomy - EVT).",
+              "isCorrect": true,
+              "explanation": "استئصال الخثرة بالقسطرة الميكانيكية بالدعامات المسترجعة هو المعيار الذهبي لانسداد الأوعية الكبيرة (LVO) ويزيد فرص التعافي العصبي التام بشكل هائل."
+            },
+            {
+              "id": "opt_s5",
+              "text": "إيقاف مذيب الخثرة والبدء في إعطاء الهيبارين الوريدي الكامل.",
+              "isCorrect": false,
+              "explanation": "الهيبارين لا يُعطى كبديل عن استئصال الخثرة في السكتة الإقفارية الحادة الحادة."
+            },
+            {
+              "id": "opt_s6",
+              "text": "إجراء بزل قطني لتصريف السائل الدماغي الشوكي.",
+              "isCorrect": false,
+              "explanation": "البزل القطني غير مستطب وممنوع أثناء إعطاء مذيبات الخثرة لخطر النزف حول الحبل الشوكي."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "case_anaphylaxis",
+      "title": "صدمة تحسسية حادة مهددة للحياة (Anaphylactic Shock & Airway Emergency)",
+      "specialty": "طب الطوارئ والعناية المركزة",
+      "difficulty": "متوسط إلى متقدم",
+      "pointsReward": 280,
+      "patientProfile": {
+        "name": "سارة",
+        "age": 22,
+        "gender": "أنثى",
+        "chiefComplaint": "صرير حنجري واختناق مفاجئ مع تورم بالشفتين واللسان وطفح جلدي شروي شامل وهبوط بالضغط بعد دقائق من أخذ مضاد حيوي.",
+        "history": "لا يوجد تاريخ تحسسي سابق معروف.",
+        "vitals": {
+          "bloodPressure": "72/42 mmHg",
+          "heartRate": "136 bpm",
+          "respiratoryRate": "34 /min",
+          "oxygenSaturation": "86%",
+          "temperature": "37.1 °C"
+        }
+      },
+      "ecgSnippet": "تسارع جيبي حاد (Sinus Tachycardia 136 bpm) مع علامات نقص التروية المحيطية.",
+      "labResults": "غازات الدم: حماض تنفسي وأيضي مختلط. هبوط أكسجة الدم PaO2 = 56 mmHg.",
+      "steps": [
+        {
+          "stepIndex": 0,
+          "prompt": "المريضة في صدمة تحسسية مهددة للحياة مع انسداد مجرى الهواء وهبوط حاد بالضغط. ما هو العقار المنقذ الأول والخطوة الأسبق على الإطلاق؟",
+          "options": [
+            {
+              "id": "opt_a1",
+              "text": "حقن الإبينفرين (Epinephrine 1:1000) بجرعة 0.3 - 0.5 mg عضلياً في منتصف الوجه الوحشي للفخذ فوراً.",
+              "isCorrect": true,
+              "explanation": "الإبينفرين العضلي هو الدواء الوحيد المنقذ للحياة في الصدمة التحسسية؛ يقبض الأوعية الدموية ويرفع الضغط، ويوسع القصبات، ويثبط تحرر وسائط الحساسية من الخلايا البدينة."
+            },
+            {
+              "id": "opt_a2",
+              "text": "إعطاء حبوب كورتيزون ومضاد هيستامين بالفم والانتظار نصف ساعة.",
+              "isCorrect": false,
+              "explanation": "الأدوية الفموية ممنوعة في مريض يعاني من انسداد مجرى الهواء وصدمة، كما أن الكورتيزون يستغرق ساعات ليعمل."
+            },
+            {
+              "id": "opt_a3",
+              "text": "إعطاء جرعة عالية من مدرات البول فوروسيميد (Lasix).",
+              "isCorrect": false,
+              "explanation": "المريضة تعاني من هبوط ضغط وتوسع وعائي؛ إعطاء المدرات سيفاقم الصدمة ويؤدي لتوقف القلب!"
+            }
+          ]
+        },
+        {
+          "stepIndex": 1,
+          "prompt": "تم إعطاء الإبينفرين العضلي. ما هو التدخل الداعم الفوري المتزامن لتعويض هبوط الضغط وتأمين الأكسجة؟",
+          "options": [
+            {
+              "id": "opt_a4",
+              "text": "أكسجين عالي التدفق (15 L/min Non-Rebreather) + تدفق سريع للمحاليل البلورية الدافئة (1-2 L Normal Saline Bolus).",
+              "isCorrect": true,
+              "explanation": "الصدمة التحسسية تسبب توسعاً وعائياً شديداً وتسريباً شعيرياً هائلاً؛ لذا فإن تعويض الحجم بالسوائل البلورية السريعة بالتوازي مع الأكسجين ضروري لإنعاش التروية."
+            },
+            {
+              "id": "opt_a5",
+              "text": "تقليل السوائل تماماً خوفاً من احتقان الرئة.",
+              "isCorrect": false,
+              "explanation": "المريضة في صدمة توزيعية؛ الحرمان من السوائل سيؤدي إلى فشل كلوي وتوقف القلب."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "quizzes": [
+    {
+      "id": "quiz_radar_eval",
+      "title": "الاختبار التشخيصي الشامل لتقييم المهارات المعرفية الطبية",
+      "category": "COMPREHENSIVE_ASSESSMENT",
+      "timeLimitMinutes": 15,
+      "totalPoints": 150,
+      "cognitiveDimensions": [
+        "clinicalReasoning",
+        "pharmacology",
+        "pathophysiology",
+        "diagnosticsLab",
+        "emergencySpeed",
+        "evidenceEthics"
+      ],
+      "questions": [
+        {
+          "id": "cog_q_clin_1",
+          "domain": "clinicalReasoning",
+          "domainName": "الاستدلال السريري والتشخيص التفريقي",
+          "question": "مريض يبلغ 58 عاماً يعاني من ألم صدري ضاغط خلف القص يمتد للفك الأيسر مع تعرق بارد وغثيان مستمر منذ ساعتين. بالفحص السريري: ضغط الدم 150/95، النبض 102/دقيقة. ما هي الخطوة التشخيصية الأكثر حرجاً وأولوية خلال أول 10 دقائق؟",
+          "options": [
+            {
+              "id": "a",
+              "text": "تخطيط قلب كهربائي 12-Lead ECG مع إعطاء أسبرين مضغ",
+              "isCorrect": true
+            },
+            {
+              "id": "b",
+              "text": "سحب عينة إنزيمات القلب Troponin والانتظار في الطوارئ",
+              "isCorrect": false
+            },
+            {
+              "id": "c",
+              "text": "تصوير مقطعي محوسب بالأشعة المقطعية للصدر والأبهر",
+              "isCorrect": false
+            },
+            {
+              "id": "d",
+              "text": "إعطاء مسكن أفيوني حقناً عضلياً وإرساله للاستراحة",
+              "isCorrect": false
+            }
+          ],
+          "explanation": "بروتوكول متلازمة الشريان التاجي الحادة (ACS) يتطلب إنجاز تخطيط القلب خلال 10 دقائق من الوصول والبدء الفوري بمضاد الصفيحات، دون انتظار نتائج الإنزيمات المخبرية لتجنب تأخر القسطرة."
+        },
+        {
+          "id": "cog_q_pharm_2",
+          "domain": "pharmacology",
+          "domainName": "الأمان الدوائي وعلم الأدوية السريري",
+          "question": "مريض سكري وضغط يتناول مثبطات الإنزيم المحول للأنجيوتنسين (Ramipril). تم تشخيصه بنوبة نقرس حادة ووصف له طبيب آخر إندوميثاسين (NSAID) بالإضافة إلى سبيرونولاكتون. ما هو الخطر الدوائي الشديد الأهم الذي يجب مراقبته فوراً؟",
+          "options": [
+            {
+              "id": "a",
+              "text": "فرط بوتاسيوم الدم الشديد (Hyperkalemia) مع قصور كلوي حاد",
+              "isCorrect": true
+            },
+            {
+              "id": "b",
+              "text": "هبوط حاد في مستويات سكر الدم وتشنجات",
+              "isCorrect": false
+            },
+            {
+              "id": "c",
+              "text": "سمية كبدية حادة وارتفاع إنزيمات ALT/AST",
+              "isCorrect": false
+            },
+            {
+              "id": "d",
+              "text": "نقص حاد في صفائح الدم ونزيف هضمي معزول",
+              "isCorrect": false
+            }
+          ],
+          "explanation": "مزيج ACEi مع Spironolactone (كلاهما يحبس البوتاسيوم) مع NSAID (يقلل التروية الكبيبية عبر تثبيط البروستاغلاندين) يشكل الثالوث القاتل (Triple Whammy) المسبب لفرط البوتاسيوم والفشل الكلوي الحاد."
+        },
+        {
+          "id": "cog_q_patho_3",
+          "domain": "pathophysiology",
+          "domainName": "الفيزيولوجيا المرضية وآليات الخلل العضوي",
+          "question": "في مريض الصدمة الإنتانية (Septic Shock)، ما هي الآلية الفيزيولوجية المرضية الأولية التي تؤدي إلى انخفاض المقاومة الوعائية الجهازية (Systemic Vascular Resistance - SVR) ونقص تروية الأعضاء الحيوية؟",
+          "options": [
+            {
+              "id": "a",
+              "text": "الإفراط في إفراز أكسيد النيتريك (NO) والسيتوكينات المسببة للتوسع الوعائي الشديد",
+              "isCorrect": true
+            },
+            {
+              "id": "b",
+              "text": "انسداد ميكانيكي حاد في الشريان الرئوي الرئيسي",
+              "isCorrect": false
+            },
+            {
+              "id": "c",
+              "text": "فشل مضخة البطين الأيسر الانقباضية بسبب اعتلال مباشر",
+              "isCorrect": false
+            },
+            {
+              "id": "d",
+              "text": "فقدان حجم الدم الحقيقي عبر النزف الخارجي الحاد",
+              "isCorrect": false
+            }
+          ],
+          "explanation": "في الإنتان، تؤدي السيتوكينات الالتهابية (TNF-alpha, IL-1) إلى تحفيز إنزيم iNOS وإنتاج كميات هائلة من أكسيد النيتريك مما يؤدي إلى توسع وعائي هائل وشلل النبرة الوعائية وخلل توزيع التروية."
+        },
+        {
+          "id": "cog_q_diag_4",
+          "domain": "diagnosticsLab",
+          "domainName": "تفسير التحاليل والتخطيط والفحوصات المخبرية",
+          "question": "أظهر تحليل غازات الدم الشرياني (ABG) لمريضة تعاني من إسهال حاد النتائج التالية: pH: 7.28, PaCO2: 30 mmHg, HCO3: 14 mEq/L, Na: 140 mEq/L, Cl: 114 mEq/L. ما هو التوصيف الحمضي-القلوي الدقيق؟",
+          "options": [
+            {
+              "id": "a",
+              "text": "حماض استقلابي طبيعي الفجوة الأيونية (Normal Anion Gap Metabolic Acidosis)",
+              "isCorrect": true
+            },
+            {
+              "id": "b",
+              "text": "حماض استقلابي مرتفع الفجوة الأيونية (High Anion Gap Acidosis)",
+              "isCorrect": false
+            },
+            {
+              "id": "c",
+              "text": "حماض تنفسي أولي مع تعويض استقلابي غير كامل",
+              "isCorrect": false
+            },
+            {
+              "id": "d",
+              "text": "قلاء استقلابي مع نقص تهوية تعويضي",
+              "isCorrect": false
+            }
+          ],
+          "explanation": "الفجوة الأيونية: Anion Gap = Na - (Cl + HCO3) = 140 - (114 + 14) = 12 mEq/L (ضمن النطاق الطبيعي 8-12)، والبيكربونات منخفضة مع pH حامضي وتعويض تنفسي (انخفاض PCO2)، وهو نموذج حماض فقدان البيكربونات المعوي."
+        },
+        {
+          "id": "cog_q_emerg_5",
+          "domain": "emergencySpeed",
+          "domainName": "طب الطوارئ واتخاذ القرار الحرج السريع",
+          "question": "وصلت الطوارئ طفلة عمرها 6 سنوات تعاني من صدمة حساسية مفرطة (Anaphylaxis) بعد لسعة نحل: وذمة شفوية وصرير حنجري (Stridor) وانخفاض الضغط إلى 70/40. ما هو العلاج الحاسم الأول وفورياً دون أي تأخير؟",
+          "options": [
+            {
+              "id": "a",
+              "text": "إبينفرين (أدرينالين) حقناً عضلياً في الوجه الوحشي لمنتصف الفخذ (IM)",
+              "isCorrect": true
+            },
+            {
+              "id": "b",
+              "text": "إعطاء كورتيزون هيدروكورتيزون وريدي والانتظار لبدء مفعوله",
+              "isCorrect": false
+            },
+            {
+              "id": "c",
+              "text": "مضادات الهيستامين وريدياً مثل ديفينهيدرامين وحدها",
+              "isCorrect": false
+            },
+            {
+              "id": "d",
+              "text": "جلسة استنشاق بموسع قصبات سالبيوتامول فقط",
+              "isCorrect": false
+            }
+          ],
+          "explanation": "الأدرينالين العضلي (IM Epinephrine) هو خط الدفاع الأول والوحيد المنقذ للحياة فوراً في التأق الشديد، وامتصاصه في منتصف الفخذ هو الأسرع على الإطلاق. الكورتيزون ومضادات الهيستامين أدوية مساعدة متأخرة المفعول."
+        },
+        {
+          "id": "cog_q_ethics_6",
+          "domain": "evidenceEthics",
+          "domainName": "الطب المسند بالدليل والأخلاقيات الطبية",
+          "question": "مريض بالغ كامل الأهلية العقلية يرفض نقل دم ضروري لإنقاذ حياته لأسباب اعتقادية شخصية بعد شرح كافة المخاطر الطبية وتبعات الوفاة له بالتفصيل والتأكد من استيعابه التام. ما هو التصرف الأخلاقي والقانوني السليم وفق المعايير الطبية الدولية؟",
+          "options": [
+            {
+              "id": "a",
+              "text": "احترام استقلالية المريض (Autonomy) والامتناع عن نقل الدم مع تقديم أفضل رعاية بديلة ممكنة وتوثيق ذلك بدقة",
+              "isCorrect": true
+            },
+            {
+              "id": "b",
+              "text": "إعطاء الدم رغماً عنه بموجب مبدأ الإحسان الطبي (Beneficence)",
+              "isCorrect": false
+            },
+            {
+              "id": "c",
+              "text": "تخدير المريض خلسة ثم نقل الدم أثناء نومه",
+              "isCorrect": false
+            },
+            {
+              "id": "d",
+              "text": "طرد المريض من المستشفى وإلغاء ملفه الطبي نهائياً",
+              "isCorrect": false
+            }
+          ],
+          "explanation": "مبدأ استقلالية المريض (Patient Autonomy) يضمن للشخص البالغ الواعي المؤهل عقلياً حق رفض أي تدخل طبي حتى لو كان منقذاً للحياة، شريطة تقديم بدائل خالية من الدم وتوثيق الموافقة المستنيرة على الرفض."
+        }
+      ]
+    }
+  ],
+  "arenaBattles": [
+    {
+      "id": "battle_01",
+      "title": "دوري أطباء الامتياز الأسبوعي: تحدي الباطنة والتشخيص السريع",
+      "totalQuestions": 5,
+      "timePerQuestionSec": 20,
+      "status": "ACTIVE",
+      "participantsCount": 184,
+      "prizePoints": 500,
+      "questions": [
+        {
+          "q": "ما هو العلامة السريرية المميزة في فحص العين لمرض ويلسون (Wilson's Disease)؟",
+          "options": [
+            "حلقات قيصر-فلايشر (Kayser-Fleischer rings)",
+            "ورم العصب البصري",
+            "عتامة القرنية الولادية",
+            "انفصال الشبكية المصلي"
+          ],
+          "correctIndex": 0
+        },
+        {
+          "q": "ما هي الجرعة الإسعافية الأولى للأدرينالين (Epinephrine) في الصدمة التأقية (Anaphylaxis) لدى البالغين؟",
+          "options": [
+            "0.5 mg حقناً عضلياً في الفخذ الخارجي (1:1,000)",
+            "5 mg وريدياً سريعاً",
+            "10 mg تحت الجلد",
+            "0.1 mg رذاذاً استنشاقياً"
+          ],
+          "correctIndex": 0
+        },
+        {
+          "q": "أي الأدوية التالية يستخدم كمضاد سمي نوعي (Antidote) للتسمم بالباراسيتامول / الأسيتامينوفين؟",
+          "options": [
+            "إن-أسيتيل سيستئين (N-Acetylcysteine)",
+            "نالوكسون (Naloxone)",
+            "فلودروكورتيزون",
+            "ديفيروكسامين"
+          ],
+          "correctIndex": 0
+        },
+        {
+          "q": "في تخطيط القلب، ما هو النظم الذي يتميز بغياب موجات P وتفاوت غير منتظم تماماً للمسافة بين R-R؟",
+          "options": [
+            "الرجفان الأذيني (Atrial Fibrillation)",
+            "حصار القلب تام الدرجة الثالثة",
+            "تسرع القلب فوق البطيني PSVT",
+            "الرفرفة الأذينية المنتظمة"
+          ],
+          "correctIndex": 0
+        },
+        {
+          "q": "ما هو العصب المعرض للأذى عند كسر عنق عظم الشظية (Fibula neck fracture)؟",
+          "options": [
+            "العصب الشظوي المشترك (Common Peroneal Nerve) مسبباً هبوط القدم",
+            "العصب الظنبوبي (Tibial Nerve)",
+            "العصب الفخذي",
+            "العصب الإسكافي"
+          ],
+          "correctIndex": 0
+        }
+      ]
+    }
+  ],
+  "flashcards": [
+    {
+      "id": "fc_1",
+      "deck": "علم الأدوية والسموم",
+      "front": "ما هو الترياق النوعي (Antidote) للتسمم بالبنزوديازيبينات (Benzodiazepines overdose)؟",
+      "back": "فلومازينيل (Flumazenil) - مضاد تنافسي على مستقبلات GABA-A.",
+      "highYield": true,
+      "category": "Pharmacology"
+    },
+    {
+      "id": "fc_2",
+      "deck": "أمراض الباطنة",
+      "front": "ما هي مكونات ثالوث بيك (Beck's Triad) المشخص للدكاك القلبي (Cardiac Tamponade)؟",
+      "back": "1. هبوط ضغط الدم (Hypotension)\n2. انتفاخ أوردة الرقبة الوداجية (JVD)\n3. خفوت أصوات القلب (Muffled heart sounds).",
+      "highYield": true,
+      "category": "Cardiology"
+    },
+    {
+      "id": "fc_3",
+      "deck": "طب الأطفال",
+      "front": "ما هي الجرثومة الأكثر شيوعاً المسببة لالتهاب لسان المزمار الحاد (Acute Epiglottitis)؟",
+      "back": "المستدمية النزلية النمط b (Haemophilus influenzae type b - Hib). وتظهر علامة الإبهام (Thumbprint sign) في الأشعة.",
+      "highYield": true,
+      "category": "Pediatrics"
+    },
+    {
+      "id": "fc_4",
+      "deck": "الجراحة العامة",
+      "front": "ما هي علامة ميرفي (Murphy's Sign) وعلام تدل؟",
+      "back": "توقف مفاجئ للشهيق عند الضغط العميق تحت الحافة الضلعية اليمنى، وتدل بقوة على التهاب المرارة الحاد (Acute Cholecystitis).",
+      "highYield": true,
+      "category": "Surgery"
+    },
+    {
+      "id": "fc_5",
+      "deck": "طب الطوارئ والإنعاش",
+      "category": "emergency",
+      "front": "ما هي الأسباب القابلة للعكس لتوقف القلب المعروفة بـ 5Hs و 5Ts؟",
+      "back": "• 5 Hs: Hypovolemia (نقص الحجم)، Hypoxia (نقص الأكسجة)، Hydrogen ion (الحماض Acidosis)، Hypo/Hyperkalemia (اضطراب البوتاسيوم)، Hypothermia (هبوط الحرارة).\n• 5 Ts: Tension pneumothorax (استرواح موتر)، Tamponade cardiac (اندحاس قلبي)، Toxins (سموم)، Thrombosis pulmonary (صمة رئوية PE)، Thrombosis coronary (احتشاء MI).",
+      "highYield": true
+    },
+    {
+      "id": "fc_6",
+      "deck": "طب وجراحة الأعصاب",
+      "category": "neuro",
+      "front": "ما هو ثالوث كوشينغ (Cushing Triad) الدال على ارتفاع الضغط القحفي والفتق الدماغي الوشيك؟",
+      "back": "1. ارتفاع ضغط الدم الانقباضي الشديد مع اتساع الضغط النبضي (Hypertension with widened pulse pressure).\n2. بطء ضربات القلب الشديد (Bradycardia).\n3. عدم انتظام وتثبيط التنفس (Irregular/depressed respirations).\n⚠️ علامة متأخرة لانضغاط جذع الدماغ وتتطلب تخفيف الضغط فوراً (Mannitol/Hypertonic Saline/Hyperventilation).",
+      "highYield": true
+    },
+    {
+      "id": "fc_7",
+      "deck": "الكيمياء الحيوية والغدد",
+      "category": "biochem",
+      "front": "كيف نميز مخبرياً بين الحماض الكيتوني السكري (DKA) وحالة فرط السكر مفرط التناضح (HHS)؟",
+      "back": "• DKA: كيتونات مرتفعة بالدم والبول، حماض شديد (pH < 7.30، HCO3 < 18)، فجوة شاردية مرتفعة (Anion Gap > 12)، سكر الدم غالباً 250-500 mg/dL.\n• HHS: سكر دم مرتفع جداً (> 600 mg/dL)، أسمولية المصل مرتفعة جداً (> 320 mOsm/kg)، لا يوجد حماض ملحوظ (pH > 7.30، HCO3 طبيعي)، ولا توجد كيتونات ملموسة.",
+      "highYield": true
+    },
+    {
+      "id": "fc_8",
+      "deck": "أمراض القلب والتخطيط",
+      "category": "cardio",
+      "front": "ما هو نمط تخطيط القلب (ECG) الكلاسيكي الدال على انسداد الشريان التاجي الأيسر الرئيسي (LMCA) أو مرض الأوعية الثلاثة الشديد؟",
+      "back": "ارتفاع قطعة ST في المسري aVR بمقدار ≥ 1 mm (بحيث يكون ارتفاع ST في aVR أكبر من ارتفاعه في V1)، مع انخفاض واسع النطاق لقطعة ST (Depression) في 6 مسارٍ أو أكثر (خاصة المساري الجانبية والسفلية V4-V6 و I, II). يستدعي قسطرة قلبية فورية منقذة للحياة!",
+      "highYield": true
+    }
+  ],
+  "badges": [
+    {
+      "id": "master_diagnostician",
+      "name": "وسام التشخيص الدقيق",
+      "icon": "🔬",
+      "description": "حل أكثر من 10 حالات سريرية بنسبة نجاح تفوق 90%"
+    },
+    {
+      "id": "emergency_hero",
+      "name": "بطل طب الطوارئ",
+      "icon": "🚑",
+      "description": "اتخاذ قرارات سريرية صحيحة في وقت قياسي أقل من 15 ثانية"
+    },
+    {
+      "id": "ecg_guru",
+      "name": "خبير تخطيط القلب",
+      "icon": "📈",
+      "description": "تفسير متقدم لـ 20 مخطط قلب دون أي خطأ"
+    },
+    {
+      "id": "code_architect",
+      "name": "مهندس المنظومة الطبية",
+      "icon": "⚡",
+      "description": "صلاحيات المطور والمسؤول الأكاديمي العام"
+    },
+    {
+      "id": "curriculum_lead",
+      "name": "رائد التعليم الطبي",
+      "icon": "🎓",
+      "description": "إنهاء وتدقيق مقررات السنوات الأساسية والسريرية"
+    }
+  ]
+}
