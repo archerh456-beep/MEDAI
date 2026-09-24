@@ -1,29 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, saveDb } from '@/lib/db';
+import { authenticateWithGoogle } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, pointsEarned } = await req.json();
-    const db = await getDb();
+    const { email, name, googleId, avatar, studentId, academicYear } = await req.json();
 
-    const user = db.users.find((u) => u.id === userId) || db.users[0];
-    if (user) {
-      user.points += Number(pointsEarned) || 0;
-      user.streak = (user.streak || 0) + 1;
-
-      // Re-sort leaderboard ranks based on points
-      db.users.sort((a, b) => b.points - a.points);
-      db.users.forEach((u, idx) => {
-        u.rank = idx + 1;
-      });
-
-      await saveDb(db);
-      return NextResponse.json({ success: true, newPoints: user.points, newRank: user.rank });
+    if (!email) {
+      return NextResponse.json({ error: 'البريد الإلكتروني مطلوب' }, { status: 400 });
     }
 
-    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    const { user, isNewUser } = await authenticateWithGoogle({
+      email,
+      name: name || email.split('@')[0],
+      googleId: googleId || `g_${Date.now()}`,
+      avatar,
+      studentId,
+      academicYear,
+    });
+
+    const response = NextResponse.json({
+      success: true,
+      user,
+      isNewUser,
+      message: isNewUser
+        ? 'تم إنشاء حسابك وربطه بـ Google بنجاح (+150 نقطة XP)'
+        : 'تم تسجيل الدخول بحساب Google بنجاح',
+    });
+
+    // Set auth cookie
+    response.cookies.set('userId', user.id, {
+      path: '/',
+      httpOnly: false,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    });
+
+    return response;
   } catch (error: any) {
-    console.error('Error recording arena score:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Error in Google Auth API:', error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
