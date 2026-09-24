@@ -1,0 +1,84 @@
+# Vercel Ignore File for MedAI Academy
+# This file tells Vercel which files and directories to ignore during deployment
+
+# Git directories and files
+.git
+.gitignore
+.gitmodules
+
+# Node.js modules and package files
+node_modules
+package-lock.json
+
+# Next.js build output
+.next
+out
+
+# Local development files
+.DS_Store
+*.pem
+*.key
+*.crt
+
+# Environment files (these should be in Vercel's Environment Variables)
+.env
+.env.local
+.env.development
+.env.test
+.env.*.local
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Build artifacts
+build
+dist
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp
+temp
+*.tmp
+
+# Local storage files (from db.json)
+src/data/db.json
+
+# Vercel specific
+.vercel
+vercel.json
+
+# TypeScript cache
+*.tsbuildinfo
+
+# IDE specific
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing
+coverage
+.nyc_output
+
+# Local development server
+localhost*

@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Database, Course, ClinicalCase, QuizQuestion, User } from '@/lib/db';
+import { Database, Course, ClinicalCase, QuizQuestion, User, CourseLecture, CourseExam } from '@/lib/db';
+import CourseContentManager from './CourseContentManager';
+import SummaryClient from './SummaryClient';
 
 interface DeveloperStudioProps {
   initialDb: Database;
@@ -93,6 +95,13 @@ export default function DeveloperStudio({
   const [selectedStudentForBonus, setSelectedStudentForBonus] = useState<User | null>(null);
   const [bonusPoints, setBonusPoints] = useState(100);
   const [bonusBadge, setBonusBadge] = useState('master_diagnostician');
+
+  // 6. Course Content Management State
+  const [selectedCourseForContent, setSelectedCourseForContent] = useState<Course | null>(null);
+
+  // 7. Summary Management State
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryHtmlContent, setSummaryHtmlContent] = useState<string>('');
 
   const showNotification = (text: string, type: 'success' | 'error' = 'success') => {
     setStatusMessage({ type, text });
@@ -1384,6 +1393,15 @@ export default function DeveloperStudio({
           )}
         </div>
       )}
-    </div>
-  );
-}
+
+      {/* Course Content Manager Modal */}
+      {selectedCourseForContent && (
+        <CourseContentManager
+          course={selectedCourseForContent}
+          db={db}
+          onUpdate={setDb}
+          onClose={() => setSelectedCourseForContent(null)}
+        />
+      )}
+
+      {/* Bonus Modal */}

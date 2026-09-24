@@ -36,7 +36,14 @@ export interface CourseModule {
   id: string;
   title: string;
   duration: string;
-  type: string;
+  type: 'LECTURE' | 'QUIZ' | 'EXAM' | 'CASE_STUDY' | 'PHARMACOLOGY' | 'LAB';
+  description?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  isPublished?: boolean;
+  order?: number;
 }
 
 export interface Course {
@@ -52,6 +59,58 @@ export interface Course {
   studentsCount: number;
   rating: number;
   modules: CourseModule[];
+  lectures: CourseLecture[];
+  exams: CourseExam[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CourseLecture {
+  id: string;
+  courseId: string;
+  title: string;
+  description?: string;
+  fileUrl: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  duration?: string;
+  order: number;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CourseExam {
+  id: string;
+  courseId: string;
+  title: string;
+  description?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  questions: ExamQuestion[];
+  timeLimitMinutes: number;
+  totalPoints: number;
+  passingScore: number;
+  isPublished: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ExamQuestion {
+  id: string;
+  question: string;
+  options: {
+    id: string;
+    text: string;
+    isCorrect: boolean;
+  }[];
+  explanation?: string;
+  points: number;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
 }
 
 export interface ClinicalCaseOption {
@@ -149,6 +208,8 @@ export interface Database {
   arenaBattles: ArenaBattle[];
   flashcards: Flashcard[];
   badges: { id: string; name: string; icon: string; description: string }[];
+  lectures: CourseLecture[];
+  exams: CourseExam[];
 }
 
 // Check for Neon Database URL
@@ -194,6 +255,8 @@ export async function getDb(): Promise<Database> {
       const arenaRows = await sql`SELECT * FROM arena_battles ORDER BY created_at ASC`;
       const flashcardsRows = await sql`SELECT * FROM flashcards ORDER BY created_at ASC`;
       const badgesRows = await sql`SELECT * FROM badges`;
+      const lecturesRows = await sql`SELECT * FROM course_lectures ORDER BY created_at ASC`;
+      const examsRows = await sql`SELECT * FROM course_exams ORDER BY created_at ASC`;
 
       return {
         users: usersRows.map((r: any) => ({
@@ -272,6 +335,39 @@ export async function getDb(): Promise<Database> {
           icon: r.icon,
           description: r.description,
         })),
+        lectures: lecturesRows.map((r: any) => ({
+          id: r.id,
+          courseId: r.course_id,
+          title: r.title,
+          description: r.description,
+          fileUrl: r.file_url,
+          fileName: r.file_name,
+          fileType: r.file_type,
+          fileSize: Number(r.file_size) || 0,
+          duration: r.duration,
+          order: Number(r.order_index) || 0,
+          isPublished: Boolean(r.is_published) || true,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        })),
+        exams: examsRows.map((r: any) => ({
+          id: r.id,
+          courseId: r.course_id,
+          title: r.title,
+          description: r.description,
+          fileUrl: r.file_url,
+          fileName: r.file_name,
+          fileType: r.file_type,
+          fileSize: Number(r.file_size) || 0,
+          questions: typeof r.questions === 'string' ? JSON.parse(r.questions) : r.questions,
+          timeLimitMinutes: Number(r.time_limit_minutes) || 60,
+          totalPoints: Number(r.total_points) || 100,
+          passingScore: Number(r.passing_score) || 60,
+          isPublished: Boolean(r.is_published) || true,
+          order: Number(r.order_index) || 0,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        })),
       };
     } catch (neonErr) {
       console.warn('Neon query error, falling back to local dataset:', neonErr);
@@ -301,7 +397,22 @@ export async function getDb(): Promise<Database> {
   }
 
   // Guaranteed fallback to bundled dataset
-  memoryDb = JSON.parse(JSON.stringify(fallbackDataset));
+  const fallback = JSON.parse(JSON.stringify(fallbackDataset));
+  // Ensure new fields exist in fallback data
+  if (!fallback.courses) fallback.courses = [];
+  if (!fallback.lectures) fallback.lectures = [];
+  if (!fallback.exams) fallback.exams = [];
+  
+  // Add lectures and exams to courses if they exist in fallback
+  if (fallback.lectures && fallback.courses) {
+    fallback.courses = fallback.courses.map(course => ({
+      ...course,
+      lectures: fallback.lectures.filter(l => l.courseId === course.id),
+      exams: fallback.exams.filter(e => e.courseId === course.id)
+    }));
+  }
+  
+  memoryDb = fallback;
   return memoryDb!;
 }
 

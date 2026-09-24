@@ -3,17 +3,17 @@
 -- Run this script in your Neon Console (SQL Editor) to initialize all tables
 -- =================================================================
 
--- 1. Users Table (تشمل الاسم، الرقم الجامعي، السنة الدراسية، والربط بـ Google)
+-- 1. Users Table (تشمل الاسم، البريد الإلكتروني، رقم الطالب، السنة الأكاديمية، الجامعة، الدور، المستوى، النقاط، الرتبة، السلسلة، الصورة، معرف جوجل، درجات المهارات المعرفية، الأوسمة)
 CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(100) PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   student_id VARCHAR(100) UNIQUE,
   academic_year VARCHAR(100) NOT NULL DEFAULT 'السنة الأولى',
-  university VARCHAR(255) DEFAULT 'كلية الطب',
+  university VARCHAR(255) DEFAULT 'جامعة الطب',
   email VARCHAR(255) UNIQUE NOT NULL,
   password VARCHAR(255),
-  role VARCHAR(50) NOT NULL DEFAULT 'STUDENT', -- 'DEVELOPER', 'ADMIN', 'STUDENT'
-  level VARCHAR(50) DEFAULT 'STUDENT', -- 'STUDENT', 'INTERN', 'RESIDENT', 'CONSULTANT'
+  role VARCHAR(50) NOT NULL DEFAULT 'STUDENT',
+  level VARCHAR(50) DEFAULT 'STUDENT',
   points INTEGER DEFAULT 100,
   rank INTEGER DEFAULT 1,
   streak INTEGER DEFAULT 1,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Courses Table (المقررات الطبية)
+-- 2. Courses Table (المقرات الطبية)
 CREATE TABLE IF NOT EXISTS courses (
   id VARCHAR(100) PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS courses (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Clinical Cases Table (محاكي الحالات السريرية)
+-- 3. Clinical Cases Table (محاكيات الحالات السريرية)
 CREATE TABLE IF NOT EXISTS clinical_cases (
   id VARCHAR(100) PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS clinical_cases (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Quizzes Table (بنك التقييم المعرفي)
+-- 4. Quizzes Table (بنك الأسئلة التقييمية)
 CREATE TABLE IF NOT EXISTS quizzes (
   id VARCHAR(100) PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS quizzes (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Arena Battles Table (حلبة التنافس والمسابقات)
+-- 5. Arena Battles Table (حلبة التنافس والاختبارات السريعة)
 CREATE TABLE IF NOT EXISTS arena_battles (
   id VARCHAR(100) PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
@@ -92,7 +92,44 @@ CREATE TABLE IF NOT EXISTS flashcards (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Badges Table (الأوسمة والإنجازات)
+-- 7. Course Lectures Table (ملفات المحاضرات)
+CREATE TABLE IF NOT EXISTS course_lectures (
+  id VARCHAR(100) PRIMARY KEY,
+  course_id VARCHAR(100) REFERENCES courses(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  file_url TEXT NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  file_type VARCHAR(50) NOT NULL,
+  file_size BIGINT DEFAULT 0,
+  duration VARCHAR(50),
+  order_index INTEGER DEFAULT 0,
+  is_published BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8. Course Exams Table (ملفات الاختبارات)
+CREATE TABLE IF NOT EXISTS course_exams (
+  id VARCHAR(100) PRIMARY KEY,
+  course_id VARCHAR(100) REFERENCES courses(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  file_url TEXT,
+  file_name VARCHAR(255),
+  file_type VARCHAR(50),
+  file_size BIGINT DEFAULT 0,
+  questions JSONB DEFAULT '[]',
+  time_limit_minutes INTEGER DEFAULT 60,
+  total_points INTEGER DEFAULT 100,
+  passing_score INTEGER DEFAULT 60,
+  is_published BOOLEAN DEFAULT TRUE,
+  order_index INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 9. Badges Table (الأوسمة والإنجازات)
 CREATE TABLE IF NOT EXISTS badges (
   id VARCHAR(100) PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
@@ -107,10 +144,10 @@ INSERT INTO users (
   id, name, student_id, academic_year, university, email, password, role, level, points, rank, streak, avatar, google_id, cognitive_scores, badges
 ) VALUES (
   'dev_archerh456',
-  'Archerhood (المطور والمسؤول الأكاديمي العام)',
+  'Archerhood (المطور والمشرف الرئيسي لأكاديمية MedAI)',
   'MED-DEV-01',
-  'استشاري وأستاذ أكاديمي',
-  'كلية الطب - المشرف الأكاديمي العام',
+  'استشاري وأكاديمي',
+  'جامعة الطب - الكلية الطبية',
   'archerh456@gmail.com',
   'developer123',
   'DEVELOPER',
