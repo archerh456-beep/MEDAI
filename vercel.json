@@ -23,7 +23,6 @@
   ],
   "regions": ["iad1"],
   "env": {
-    "DATABASE_URL": "@neon-db-url",
     "DEVELOPER_SECRET_KEY": "@developer-secret-key"
   }
 }
