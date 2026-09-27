@@ -1,7 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import fs from 'fs';
 import path from 'path';
-import fallbackDataset from '@/data/db.json';
+import fallbackDataset from '../data/db.json';
 
 export interface CognitiveScores {
   foundational?: number;

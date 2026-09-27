@@ -1,5 +1,5 @@
-import DeveloperStudio from '@/DeveloperStudio';
-import CourseViewerClient from '@/CourseViewerClient';
+import DeveloperStudio from '@/components/DeveloperStudio';
+import CourseViewerClient from '@/components/CourseViewerClient';
 import { getDb } from '@/lib/db';
 
 export default async function Home() {
