@@ -290,6 +290,8 @@ export async function getDb(): Promise<Database> {
           studentsCount: Number(r.students_count),
           rating: Number(r.rating),
           modules: typeof r.modules === 'string' ? JSON.parse(r.modules) : r.modules,
+          lectures: [],
+          exams: [],
         })),
         clinicalCases: casesRows.map((r: any) => ({
           id: r.id,
@@ -405,10 +407,10 @@ export async function getDb(): Promise<Database> {
   
   // Add lectures and exams to courses if they exist in fallback
   if (fallback.lectures && fallback.courses) {
-    fallback.courses = fallback.courses.map(course => ({
+    fallback.courses = fallback.courses.map((course: any) => ({
       ...course,
-      lectures: fallback.lectures.filter(l => l.courseId === course.id),
-      exams: fallback.exams.filter(e => e.courseId === course.id)
+      lectures: fallback.lectures.filter((l: any) => l.courseId === course.id),
+      exams: fallback.exams.filter((e: any) => e.courseId === course.id)
     }));
   }
   

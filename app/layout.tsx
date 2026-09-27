@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   title: 'MedAI Academy | أكاديمية الذكاء الاصطناعي الطبي',
   description: 'منصة تعليمية طبية متقدمة تدعم الذكاء الاصطناعي، المحاكيات السريرية، واختبارات تفاعلية',
   keywords: ['طبية', 'ذكاء اصطناعي', 'تعليم', 'MedAI', 'أكاديمية', 'محاكيات', 'اختبارات'],
-  authors: [{ name: 'Archerhood', email: 'archerh456@gmail.com' }],
+  authors: [{ name: 'Archerhood' }],
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon-16x16.png',

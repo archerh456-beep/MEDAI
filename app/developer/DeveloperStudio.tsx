@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Database, Course, ClinicalCase, QuizQuestion, User, CourseLecture, CourseExam } from '@/lib/db';
-import CourseContentManager from './CourseContentManager';
-import SummaryClient from './SummaryClient';
+import CourseContentManager from '@/courses/CourseContentManager';
+import SummaryClient from '@/developer/SummaryClient';
 
 interface DeveloperStudioProps {
   initialDb: Database;
@@ -1405,3 +1405,6 @@ export default function DeveloperStudio({
       )}
 
       {/* Bonus Modal */}
+    </div>
+  );
+}

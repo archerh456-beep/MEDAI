@@ -1,5 +1,5 @@
-import DeveloperStudio from '@/components/DeveloperStudio';
-import CourseViewerClient from '@/components/CourseViewerClient';
+import DeveloperStudio from '@/developer/DeveloperStudio';
+import CourseViewerClient from '@/courses/CourseViewerClient';
 import { getDb } from '@/lib/db';
 
 export default async function Home() {
@@ -136,7 +136,7 @@ export default async function Home() {
             <span>📚</span>
             <span>الكورسات المتاحة</span>
           </h2>
-          <CourseViewerClient courses={db.courses} />
+          {db.courses.map(course => <CourseViewerClient key={course.id} course={course} />)}
         </div>
       </section>
 

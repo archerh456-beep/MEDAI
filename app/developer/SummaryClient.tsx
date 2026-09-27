@@ -46,7 +46,8 @@ export default function SummaryClient({ db, currentUser }: SummaryClientProps) {
   ];
 
   // Load HTML content from file
-  const loadHtmlContent = async (fileUrl: string) => {
+  const loadHtmlContent = async (fileUrl: string | undefined) => {
+    if (!fileUrl) return;
     try {
       // In production, you would fetch from your storage
       // For now, we'll use the file URL directly
