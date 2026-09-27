@@ -22,7 +22,5 @@
     }
   ],
   "regions": ["iad1"],
-  "env": {
-    "DEVELOPER_SECRET_KEY": "@developer-secret-key"
-  }
+  "env": {}
 }
