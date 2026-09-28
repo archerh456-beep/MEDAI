@@ -8,7 +8,6 @@
 
 # Node.js modules and package files
 node_modules
-package-lock.json
 
 # Next.js build output
 .next
@@ -58,12 +57,8 @@ tmp
 temp
 *.tmp
 
-# Local storage files (from db.json)
-src/data/db.json
-
 # Vercel specific
 .vercel
-vercel.json
 
 # TypeScript cache
 *.tsbuildinfo
