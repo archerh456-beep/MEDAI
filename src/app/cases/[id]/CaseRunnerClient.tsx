@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ClinicalCase, User } from '@/lib/db';
-import EcgCanvasMonitor from '@/developer/EcgCanvasMonitor';
+import EcgCanvasMonitor from '@/app/components/EcgCanvasMonitor';
 
 export default function CaseRunnerClient({
   clinicalCase,

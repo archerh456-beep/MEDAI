@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Database, Course, ClinicalCase, QuizQuestion, User, CourseLecture, CourseExam } from '@/lib/db';
-import CourseContentManager from '@/courses/CourseContentManager';
-import SummaryClient from '@/developer/SummaryClient';
+import CourseContentManager from '@/app/courses/CourseContentManager';
+import SummaryClient from '@/app/developer/SummaryClient';
 
 interface DeveloperStudioProps {
   initialDb: Database;

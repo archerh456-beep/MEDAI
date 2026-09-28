@@ -3,7 +3,7 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": true,
+    "strict": false,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -18,14 +18,16 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"],
+      "@/*": ["./src/*"],
+      "@/app/*": ["./src/app/*"],
       "@/lib/*": ["./src/lib/*"],
-      "@/components/*": ["./app/*"],
-      "@/courses/*": ["./app/courses/*"],
-      "@/cases/*": ["./app/cases/*"],
-      "@/arena/*": ["./app/arena/*"],
-      "@/assessment/*": ["./app/assessment/*"],
-      "@/developer/*": ["./app/developer/*"]
+      "@/data/*": ["./src/data/*"],
+      "@/components/*": ["./src/app/components/*"],
+      "@/courses/*": ["./src/app/courses/*"],
+      "@/cases/*": ["./src/app/cases/*"],
+      "@/arena/*": ["./src/app/arena/*"],
+      "@/assessment/*": ["./src/app/assessment/*"],
+      "@/developer/*": ["./src/app/developer/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

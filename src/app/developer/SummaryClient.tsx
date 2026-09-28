@@ -73,8 +73,9 @@ export default function SummaryClient({ db, currentUser }: SummaryClientProps) {
     if (!currentUser) return null;
     
     const cognitiveScores = currentUser.cognitiveScores || {};
-    const avgScore = Object.values(cognitiveScores).length > 0
-      ? (Object.values(cognitiveScores).reduce((a, b) => a + (b || 0), 0) / Object.values(cognitiveScores).length).toFixed(1)
+    const scoreValues = Object.values(cognitiveScores) as (number | undefined)[];
+    const avgScore = scoreValues.length > 0
+      ? (scoreValues.reduce((a: number, b) => a + (Number(b) || 0), 0) / scoreValues.length).toFixed(1)
       : '0';
     
     return {

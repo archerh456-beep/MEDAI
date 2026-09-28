@@ -1,12 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Use webpack explicitly
-  // This fixes the Turbopack vs Webpack conflict in Next.js 16
-  
-  // Enable React Strict Mode
   reactStrictMode: true,
-
-  // Image optimization
   images: {
     remotePatterns: [
       {
@@ -14,17 +8,12 @@ const nextConfig = {
         hostname: 'api.dicebear.com',
       },
     ],
-    formats: ['image/avif', 'image/webp'],
   },
-
-  // Experimental features
   experimental: {
     serverActions: {
-      bodySizeLimit: '2mb',
+      bodySizeLimit: '4mb',
     },
   },
-
-  // Headers for security
   async headers() {
     return [
       {
@@ -43,17 +32,6 @@ const nextConfig = {
             value: 'nosniff',
           },
         ],
-      },
-    ];
-  },
-
-  // Redirects
-  async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/',
-        permanent: true,
       },
     ];
   },
