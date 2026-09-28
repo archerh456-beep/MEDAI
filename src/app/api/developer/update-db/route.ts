@@ -98,6 +98,58 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'الطالب غير موجود' }, { status: 404 });
       }
 
+      case 'ADD_LECTURE': {
+        const lecture = {
+          ...payload,
+          id: payload.id || `lecture_${Date.now()}`,
+          createdAt: new Date().toISOString(),
+        };
+        if (!db.lectures) db.lectures = [];
+        db.lectures.push(lecture);
+        const course = db.courses.find((c) => c.id === lecture.courseId);
+        if (course) {
+          if (!course.lectures) course.lectures = [];
+          course.lectures.push(lecture);
+        }
+        await saveDb(db);
+        return NextResponse.json({ success: true, message: 'تمت إضافة المحاضرة للمقرر بنجاح', lecture, db });
+      }
+
+      case 'DELETE_LECTURE': {
+        db.lectures = (db.lectures || []).filter((l) => l.id !== payload.lectureId);
+        db.courses.forEach((c) => {
+          if (c.lectures) c.lectures = c.lectures.filter((l) => l.id !== payload.lectureId);
+        });
+        await saveDb(db);
+        return NextResponse.json({ success: true, message: 'تم حذف المحاضرة بنجاح', db });
+      }
+
+      case 'ADD_EXAM': {
+        const exam = {
+          ...payload,
+          id: payload.id || `exam_${Date.now()}`,
+          createdAt: new Date().toISOString(),
+        };
+        if (!db.exams) db.exams = [];
+        db.exams.push(exam);
+        const course = db.courses.find((c) => c.id === exam.courseId);
+        if (course) {
+          if (!course.exams) course.exams = [];
+          course.exams.push(exam);
+        }
+        await saveDb(db);
+        return NextResponse.json({ success: true, message: 'تمت إضافة الاختبار للمقرر بنجاح', exam, db });
+      }
+
+      case 'DELETE_EXAM': {
+        db.exams = (db.exams || []).filter((e) => e.id !== payload.examId);
+        db.courses.forEach((c) => {
+          if (c.exams) c.exams = c.exams.filter((e) => e.id !== payload.examId);
+        });
+        await saveDb(db);
+        return NextResponse.json({ success: true, message: 'تم حذف الاختبار بنجاح', db });
+      }
+
       case 'RESET_DB': {
         return NextResponse.json({ success: true, message: 'تمت استعادة الإعدادات الافتراضية' });
       }

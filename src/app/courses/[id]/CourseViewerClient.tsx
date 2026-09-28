@@ -926,6 +926,104 @@ export default function CourseViewerClient({ course }: { course: Course }) {
                 </div>
               )}
             </div>
+
+          {/* Uploaded Lectures & Resources Section */}
+          {course.lectures && course.lectures.length > 0 && (
+            <div className="p-6 rounded-3xl bg-[#0c142b] border border-indigo-500/30 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <span>📑</span>
+                  <span>المحاضرات والمراجع المرفوعة لهذا المقرر ({course.lectures.length})</span>
+                </h3>
+                <span className="text-xs text-indigo-400 font-bold bg-indigo-950 px-2.5 py-0.5 rounded-full border border-indigo-500/30">
+                  ملفات معتمدة
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {course.lectures.map((lec, idx) => (
+                  <div
+                    key={lec.id || idx}
+                    className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-indigo-500/50 transition flex flex-col justify-between space-y-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white line-clamp-1">{lec.title}</span>
+                        <span className="text-[10px] text-cyan-400 font-mono">{lec.duration || '60 دقيقة'}</span>
+                      </div>
+                      {lec.description && (
+                        <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">{lec.description}</p>
+                      )}
+                    </div>
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">{lec.fileName || 'ملف المحاضرة'}</span>
+                      {lec.fileUrl && lec.fileUrl !== '#' ? (
+                        <a
+                          href={lec.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition"
+                        >
+                          عرض / تحميل ⬇️
+                        </a>
+                      ) : (
+                        <span className="text-slate-500 text-[10px]">متاح داخل المحتوى</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Uploaded Exams Section */}
+          {course.exams && course.exams.length > 0 && (
+            <div className="p-6 rounded-3xl bg-[#0c142b] border border-amber-500/30 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <span>📝</span>
+                  <span>الاختبارات والامتحانات المتاحة ({course.exams.length})</span>
+                </h3>
+                <span className="text-xs text-amber-400 font-bold bg-amber-950 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+                  تقييم سريري
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {course.exams.map((ex, idx) => (
+                  <div
+                    key={ex.id || idx}
+                    className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-amber-500/50 transition flex flex-col justify-between space-y-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white line-clamp-1">{ex.title}</span>
+                        <span className="text-[10px] text-amber-400 font-mono">⏱️ {ex.timeLimitMinutes} دقيقة</span>
+                      </div>
+                      {ex.description && (
+                        <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">{ex.description}</p>
+                      )}
+                    </div>
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400">درجة النجاح: {ex.passingScore} / {ex.totalPoints}</span>
+                      {ex.fileUrl && ex.fileUrl !== '#' ? (
+                        <a
+                          href={ex.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold transition"
+                        >
+                          بدء الاختبار 📝
+                        </a>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-lg bg-amber-950/80 border border-amber-500/40 text-amber-300 font-bold">
+                          جاهز للتقديم
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           </div>
         </div>
       </div>

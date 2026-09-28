@@ -23,7 +23,7 @@ export default function DeveloperStudio({
 
   // Studio State
   const [activeTab, setActiveTab] = useState<'studio' | 'courses' | 'leaderboard'>('studio');
-  const [studioSubTab, setStudioSubTab] = useState<'case_architect' | 'cognitive_calibration' | 'ai_sandbox' | 'neon_control'>('case_architect');
+  const [studioSubTab, setStudioSubTab] = useState<'case_architect' | 'cognitive_calibration' | 'ai_sandbox' | 'neon_control' | 'course_content'>('case_architect');
   const [db, setDb] = useState<Database>(initialDb);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -98,6 +98,22 @@ export default function DeveloperStudio({
 
   // 6. Course Content Management State
   const [selectedCourseForContent, setSelectedCourseForContent] = useState<Course | null>(null);
+  const [contentBuilderCourseId, setContentBuilderCourseId] = useState<string>(initialDb.courses[0]?.id || '');
+  const [contentActiveTab, setContentActiveTab] = useState<'lectures' | 'exams'>('lectures');
+  const [inlineLectureForm, setInlineLectureForm] = useState({
+    title: '',
+    description: '',
+    duration: '45 دقيقة',
+    fileUrl: '',
+    fileName: '',
+  });
+  const [inlineExamForm, setInlineExamForm] = useState({
+    title: '',
+    description: '',
+    timeLimitMinutes: 60,
+    totalPoints: 100,
+    passingScore: 60,
+  });
 
   // 7. Summary Management State
   const [showSummary, setShowSummary] = useState(false);
@@ -304,6 +320,190 @@ export default function DeveloperStudio({
       showNotification('خطأ في الحذف', 'error');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Add inline lecture
+  const handleAddInlineLecture = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contentBuilderCourseId || !inlineLectureForm.title) {
+      showNotification('يرجى اختيار المقرر وكتابة عنوان المحاضرة', 'error');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const payload = {
+        courseId: contentBuilderCourseId,
+        title: inlineLectureForm.title,
+        description: inlineLectureForm.description,
+        duration: inlineLectureForm.duration || '45 دقيقة',
+        fileUrl: inlineLectureForm.fileUrl || '#',
+        fileName: inlineLectureForm.fileName || 'ملف المحاضرة',
+        fileType: 'application/pdf',
+        fileSize: 1024 * 1024 * 5,
+        isPublished: true,
+        order: ((db.lectures || []).filter((l) => l.courseId === contentBuilderCourseId).length) + 1,
+      };
+      const res = await fetch('/api/developer/update-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ADD_LECTURE', payload }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('تمت إضافة المحاضرة إلى المقرر بنجاح! 📑');
+        if (data.db) {
+          setDb(data.db);
+        } else {
+          const newLectures = [...(db.lectures || []), data.lecture];
+          const newCourses = db.courses.map((c) =>
+            c.id === contentBuilderCourseId ? { ...c, lectures: [...(c.lectures || []), data.lecture] } : c
+          );
+          setDb({ ...db, lectures: newLectures, courses: newCourses });
+        }
+        setInlineLectureForm({ title: '', description: '', duration: '45 دقيقة', fileUrl: '', fileName: '' });
+      } else {
+        showNotification(data.error || 'حدث خطأ أثناء إضافة المحاضرة', 'error');
+      }
+    } catch {
+      showNotification('حدث خطأ في الاتصال بالخادم', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Delete lecture
+  const handleDeleteLecture = async (lectureId: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذه المحاضرة؟')) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/developer/update-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'DELETE_LECTURE', payload: { lectureId } }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('تم حذف المحاضرة بنجاح');
+        if (data.db) {
+          setDb(data.db);
+        } else {
+          setDb({
+            ...db,
+            lectures: (db.lectures || []).filter((l) => l.id !== lectureId),
+            courses: db.courses.map((c) => ({
+              ...c,
+              lectures: (c.lectures || []).filter((l) => l.id !== lectureId),
+            })),
+          });
+        }
+      }
+    } catch {
+      showNotification('حدث خطأ أثناء الحذف', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Add inline exam
+  const handleAddInlineExam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contentBuilderCourseId || !inlineExamForm.title) {
+      showNotification('يرجى اختيار المقرر وكتابة عنوان الامتحان', 'error');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const payload = {
+        courseId: contentBuilderCourseId,
+        title: inlineExamForm.title,
+        description: inlineExamForm.description,
+        timeLimitMinutes: Number(inlineExamForm.timeLimitMinutes) || 60,
+        totalPoints: Number(inlineExamForm.totalPoints) || 100,
+        passingScore: Number(inlineExamForm.passingScore) || 60,
+        questions: [],
+        isPublished: true,
+        order: ((db.exams || []).filter((e) => e.courseId === contentBuilderCourseId).length) + 1,
+      };
+      const res = await fetch('/api/developer/update-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ADD_EXAM', payload }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('تمت إضافة الامتحان للمقرر بنجاح! 📝');
+        if (data.db) {
+          setDb(data.db);
+        } else {
+          const newExams = [...(db.exams || []), data.exam];
+          const newCourses = db.courses.map((c) =>
+            c.id === contentBuilderCourseId ? { ...c, exams: [...(c.exams || []), data.exam] } : c
+          );
+          setDb({ ...db, exams: newExams, courses: newCourses });
+        }
+        setInlineExamForm({ title: '', description: '', timeLimitMinutes: 60, totalPoints: 100, passingScore: 60 });
+      } else {
+        showNotification(data.error || 'حدث خطأ أثناء إضافة الامتحان', 'error');
+      }
+    } catch {
+      showNotification('حدث خطأ في الاتصال بالخادم', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Delete exam
+  const handleDeleteExam = async (examId: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا الامتحان؟')) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/developer/update-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'DELETE_EXAM', payload: { examId } }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification('تم حذف الامتحان بنجاح');
+        if (data.db) {
+          setDb(data.db);
+        } else {
+          setDb({
+            ...db,
+            exams: (db.exams || []).filter((e) => e.id !== examId),
+            courses: db.courses.map((c) => ({
+              ...c,
+              exams: (c.exams || []).filter((e) => e.id !== examId),
+            })),
+          });
+        }
+      }
+    } catch {
+      showNotification('حدث خطأ أثناء الحذف', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle course content update from CourseContentManager modal
+  const handleCourseContentUpdate = async (updatedDb: Database) => {
+    setDb(updatedDb);
+    if (selectedCourseForContent) {
+      const refreshedCourse = updatedDb.courses.find((c) => c.id === selectedCourseForContent.id);
+      if (refreshedCourse) {
+        setSelectedCourseForContent(refreshedCourse);
+      }
+    }
+    try {
+      await fetch('/api/developer/update-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'UPDATE_FULL_DB', payload: updatedDb }),
+      });
+      showNotification('تم حفظ وتحديث محتوى المقرر في قاعدة البيانات بنجاح 💾');
+    } catch {
+      showNotification('تم تحديث البيانات محلياً', 'success');
     }
   };
 
@@ -579,6 +779,18 @@ export default function DeveloperStudio({
             >
               <span>🐘</span>
               <span>مركز عمليات قاعدة بيانات Neon</span>
+            </button>
+
+            <button
+              onClick={() => setStudioSubTab('course_content')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                studioSubTab === 'course_content'
+                  ? 'bg-cyan-500 text-slate-950 font-black'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <span>📑</span>
+              <span>إدارة وتغذية المحاضرات والامتحانات</span>
             </button>
           </div>
 
@@ -1031,6 +1243,350 @@ export default function DeveloperStudio({
               </div>
             </div>
           )}
+
+          {/* Sub-Tab 5: Course Content Builder (Lectures & Exams) */}
+          {studioSubTab === 'course_content' && (
+            <div className="space-y-6">
+              {/* Top Banner & Course Selector */}
+              <div className="p-6 rounded-3xl bg-[#0c142b] border border-cyan-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-black text-white text-base flex items-center gap-2">
+                    <span>📑</span>
+                    <span>منشئ ومدير المحاضرات والاختبارات الأكاديمية</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    اختر المقرر الطبي المطلوب لإضافة وتغذية المحاضرات التفاعلية والامتحانات السريرية
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-300 font-bold whitespace-nowrap">المقرر المستهدف:</span>
+                  <select
+                    value={contentBuilderCourseId}
+                    onChange={(e) => setContentBuilderCourseId(e.target.value)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-900 border border-cyan-500/50 text-white text-xs font-bold"
+                  >
+                    {db.courses.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.icon} {c.title} ({c.year})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Course Info Card & Quick Stats */}
+              {(() => {
+                const currentCourse = db.courses.find((c) => c.id === contentBuilderCourseId) || db.courses[0];
+                if (!currentCourse) return null;
+                const courseLectures = (db.lectures || []).filter((l) => l.courseId === currentCourse.id);
+                const courseExams = (db.exams || []).filter((e) => e.courseId === currentCourse.id);
+
+                return (
+                  <div className="space-y-6">
+                    {/* Course Summary Banner */}
+                    <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl p-2 bg-slate-950 rounded-xl border border-slate-800">
+                          {currentCourse.icon}
+                        </span>
+                        <div>
+                          <h4 className="text-sm font-black text-white">{currentCourse.title}</h4>
+                          <p className="text-xs text-slate-400">{currentCourse.description}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 rounded-xl bg-indigo-950 text-indigo-300 border border-indigo-500/30 text-xs font-bold">
+                          📑 {courseLectures.length} محاضرات
+                        </span>
+                        <span className="px-3 py-1 rounded-xl bg-amber-950 text-amber-300 border border-amber-500/30 text-xs font-bold">
+                          📝 {courseExams.length} اختبارات
+                        </span>
+                        <button
+                          onClick={() => setSelectedCourseForContent(currentCourse)}
+                          className="px-4 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs transition shadow-md"
+                        >
+                          فتح نافذة الرفع الموسعة 🚀
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Toggle Between Adding Lecture vs Adding Exam */}
+                    <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+                      <button
+                        onClick={() => setContentActiveTab('lectures')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                          contentActiveTab === 'lectures'
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'bg-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span>📑</span>
+                        <span>إضافة وإدارة المحاضرات ({courseLectures.length})</span>
+                      </button>
+                      <button
+                        onClick={() => setContentActiveTab('exams')}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                          contentActiveTab === 'exams'
+                            ? 'bg-amber-600 text-white shadow-md'
+                            : 'bg-slate-900 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span>📝</span>
+                        <span>إضافة وإدارة الامتحانات ({courseExams.length})</span>
+                      </button>
+                    </div>
+
+                    {/* LECTURES SECTION */}
+                    {contentActiveTab === 'lectures' && (
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* Add Lecture Form */}
+                        <div className="lg:col-span-6 p-6 rounded-3xl bg-[#0c142b] border border-indigo-500/30 space-y-4">
+                          <h4 className="text-sm font-black text-white flex items-center gap-2">
+                            <span>➕</span>
+                            <span>إضافة محاضرة جديدة لهذا المقرر</span>
+                          </h4>
+                          <form onSubmit={handleAddInlineLecture} className="space-y-3">
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold text-slate-300">عنوان المحاضرة</label>
+                              <input
+                                type="text"
+                                required
+                                value={inlineLectureForm.title}
+                                onChange={(e) => setInlineLectureForm({ ...inlineLectureForm, title: e.target.value })}
+                                placeholder="مثال: التدبير الحرج لاحتشاء الجدار السفلي وحصار القلب"
+                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold text-slate-300">الوصف والأهداف التعليمية</label>
+                              <textarea
+                                rows={2}
+                                value={inlineLectureForm.description}
+                                onChange={(e) => setInlineLectureForm({ ...inlineLectureForm, description: e.target.value })}
+                                placeholder="شرح موجز لمحتوى المحاضرة والنقاط السريرية المحورية..."
+                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-300">المدة الزمنية المقدرة</label>
+                                <input
+                                  type="text"
+                                  value={inlineLectureForm.duration}
+                                  onChange={(e) => setInlineLectureForm({ ...inlineLectureForm, duration: e.target.value })}
+                                  placeholder="مثال: 45 دقيقة"
+                                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-300">اسم الملف / المرجع</label>
+                                <input
+                                  type="text"
+                                  value={inlineLectureForm.fileName}
+                                  onChange={(e) => setInlineLectureForm({ ...inlineLectureForm, fileName: e.target.value })}
+                                  placeholder="مثال: ECG_Lecture_Slides.pdf"
+                                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold text-slate-300">رابط الملف / الفيديو / المستند (اختياري)</label>
+                              <input
+                                type="text"
+                                value={inlineLectureForm.fileUrl}
+                                onChange={(e) => setInlineLectureForm({ ...inlineLectureForm, fileUrl: e.target.value })}
+                                placeholder="https://... أو مسار الملف"
+                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold font-mono"
+                              />
+                            </div>
+
+                            <button
+                              type="submit"
+                              disabled={actionLoading}
+                              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              <span>➕</span>
+                              <span>حفظ وإضافة المحاضرة للمقرر</span>
+                            </button>
+                          </form>
+                        </div>
+
+                        {/* Existing Lectures List */}
+                        <div className="lg:col-span-6 p-6 rounded-3xl bg-[#0c142b] border border-slate-800 space-y-4">
+                          <h4 className="text-sm font-black text-white flex items-center justify-between">
+                            <span>المحاضرات المتاحة حالياً ({courseLectures.length})</span>
+                            <span className="text-xs text-indigo-400 font-normal">مرتبة حسب التسلسل</span>
+                          </h4>
+
+                          {courseLectures.length === 0 ? (
+                            <div className="text-center py-8 text-slate-500 text-xs border border-dashed border-slate-800 rounded-2xl">
+                              لا توجد محاضرات مضافة لهذا المقرر بعد. استخدم النموذج لإضافة أول محاضرة!
+                            </div>
+                          ) : (
+                            <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                              {courseLectures.map((lec, idx) => (
+                                <div
+                                  key={lec.id || idx}
+                                  className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between gap-3 text-xs"
+                                >
+                                  <div className="space-y-0.5 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-5 h-5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500/40 text-[10px] font-black flex items-center justify-center shrink-0">
+                                        {idx + 1}
+                                      </span>
+                                      <span className="font-bold text-white truncate">{lec.title}</span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 line-clamp-1">{lec.description || lec.fileName}</p>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-[10px] text-cyan-400 font-mono">{lec.duration || '60 دقيقة'}</span>
+                                    <button
+                                      onClick={() => handleDeleteLecture(lec.id)}
+                                      title="حذف المحاضرة"
+                                      className="p-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/30 transition text-xs"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* EXAMS SECTION */}
+                    {contentActiveTab === 'exams' && (
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        {/* Add Exam Form */}
+                        <div className="lg:col-span-6 p-6 rounded-3xl bg-[#0c142b] border border-amber-500/30 space-y-4">
+                          <h4 className="text-sm font-black text-white flex items-center gap-2">
+                            <span>➕</span>
+                            <span>إضافة اختبار / امتحان جديد لهذا المقرر</span>
+                          </h4>
+                          <form onSubmit={handleAddInlineExam} className="space-y-3">
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold text-slate-300">عنوان الاختبار</label>
+                              <input
+                                type="text"
+                                required
+                                value={inlineExamForm.title}
+                                onChange={(e) => setInlineExamForm({ ...inlineExamForm, title: e.target.value })}
+                                placeholder="مثال: الاختبار السريري النصفي في الفيزيولوجيا القلبية"
+                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold text-slate-300">الوصف والتعليمات</label>
+                              <textarea
+                                rows={2}
+                                value={inlineExamForm.description}
+                                onChange={(e) => setInlineExamForm({ ...inlineExamForm, description: e.target.value })}
+                                placeholder="تعليمات الاختبار، معايير التقييم، ونوعية الأسئلة السريرية..."
+                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-300">المدة (بالدقائق)</label>
+                                <input
+                                  type="number"
+                                  value={inlineExamForm.timeLimitMinutes}
+                                  onChange={(e) => setInlineExamForm({ ...inlineExamForm, timeLimitMinutes: Number(e.target.value) })}
+                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-300">مجموع النقاط</label>
+                                <input
+                                  type="number"
+                                  value={inlineExamForm.totalPoints}
+                                  onChange={(e) => setInlineExamForm({ ...inlineExamForm, totalPoints: Number(e.target.value) })}
+                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs font-bold text-slate-300">درجة النجاح</label>
+                                <input
+                                  type="number"
+                                  value={inlineExamForm.passingScore}
+                                  onChange={(e) => setInlineExamForm({ ...inlineExamForm, passingScore: Number(e.target.value) })}
+                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
+                                />
+                              </div>
+                            </div>
+
+                            <button
+                              type="submit"
+                              disabled={actionLoading}
+                              className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs shadow-md transition disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              <span>➕</span>
+                              <span>حفظ وإضافة الاختبار للمقرر</span>
+                            </button>
+                          </form>
+                        </div>
+
+                        {/* Existing Exams List */}
+                        <div className="lg:col-span-6 p-6 rounded-3xl bg-[#0c142b] border border-slate-800 space-y-4">
+                          <h4 className="text-sm font-black text-white flex items-center justify-between">
+                            <span>الاختبارات المسجلة حالياً ({courseExams.length})</span>
+                            <span className="text-xs text-amber-400 font-normal">جاهزة للطلاب</span>
+                          </h4>
+
+                          {courseExams.length === 0 ? (
+                            <div className="text-center py-8 text-slate-500 text-xs border border-dashed border-slate-800 rounded-2xl">
+                              لا توجد اختبارات مضافة لهذا المقرر بعد. أضف اختباراً جديداً الآن!
+                            </div>
+                          ) : (
+                            <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                              {courseExams.map((ex, idx) => (
+                                <div
+                                  key={ex.id || idx}
+                                  className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between gap-3 text-xs"
+                                >
+                                  <div className="space-y-0.5 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-5 h-5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40 text-[10px] font-black flex items-center justify-center shrink-0">
+                                        {idx + 1}
+                                      </span>
+                                      <span className="font-bold text-white truncate">{ex.title}</span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400">
+                                      ⏱️ {ex.timeLimitMinutes} دقيقة • النجاح: {ex.passingScore} من {ex.totalPoints}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      onClick={() => handleDeleteExam(ex.id)}
+                                      title="حذف الاختبار"
+                                      className="p-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/30 transition text-xs"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
       )}
 
@@ -1071,6 +1627,40 @@ export default function DeveloperStudio({
                     : 'العلوم الأساسية'}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Quick Content Manager Selector Bar */}
+          <div className="p-5 rounded-3xl bg-gradient-to-r from-indigo-950/80 via-slate-900 to-cyan-950/80 border border-indigo-500/40 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl p-2.5 rounded-2xl bg-indigo-950 border border-indigo-500/40 shrink-0">📑</span>
+              <div>
+                <h4 className="text-sm font-black text-white flex items-center gap-2">
+                  <span>إدارة وإضافة المحاضرات والامتحانات للمقررات</span>
+                  <span className="text-[10px] bg-cyan-500 text-slate-950 px-2 py-0.5 rounded-full font-black">مباشر</span>
+                </h4>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  ارفع المحاضرات والمراجع المعتمدة، وأنشئ الاختبارات السريرية التفاعلية لأي مقرر طبي
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <select
+                onChange={(e) => {
+                  const found = db.courses.find((c) => c.id === e.target.value);
+                  if (found) setSelectedCourseForContent(found);
+                }}
+                defaultValue=""
+                className="px-4 py-2.5 rounded-xl bg-slate-900 border border-cyan-500/50 text-white text-xs font-bold w-full md:w-64 cursor-pointer"
+              >
+                <option value="" disabled>-- اختر مقرراً لإضافة محتواه --</option>
+                {db.courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icon} {c.title}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -1182,6 +1772,26 @@ export default function DeveloperStudio({
                     <span>{c.modules?.length || 3} وحدات تعليمية</span>
                     <span>⏳ {c.estimatedHours} ساعة تدريب</span>
                   </div>
+
+                  {/* Lectures & Exams Stats Badges */}
+                  <div className="flex items-center gap-2 flex-wrap text-[11px] pt-1 font-semibold">
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-950/90 text-indigo-300 border border-indigo-500/30">
+                      📑 {(db.lectures || []).filter((l) => l.courseId === c.id).length} محاضرات
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-amber-950/90 text-amber-300 border border-amber-500/30">
+                      📝 {(db.exams || []).filter((e) => e.courseId === c.id).length} اختبارات
+                    </span>
+                  </div>
+
+                  {/* Button to open lecture/exam manager */}
+                  <button
+                    onClick={() => setSelectedCourseForContent(c)}
+                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500/20 via-indigo-500/20 to-teal-500/20 hover:from-cyan-500/30 hover:to-indigo-500/30 text-cyan-300 hover:text-white border border-cyan-500/40 text-xs font-black transition flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    <span>📑</span>
+                    <span>إضافة وإدارة المحاضرات والامتحانات</span>
+                    <span>⚡</span>
+                  </button>
 
                   <div className="flex items-center justify-between pt-1">
                     <Link
@@ -1399,7 +2009,7 @@ export default function DeveloperStudio({
         <CourseContentManager
           course={selectedCourseForContent}
           db={db}
-          onUpdate={setDb}
+          onUpdate={handleCourseContentUpdate}
           onClose={() => setSelectedCourseForContent(null)}
         />
       )}
