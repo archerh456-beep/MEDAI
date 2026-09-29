@@ -222,22 +222,145 @@ let memoryDb: Database | null = null;
 
 // Initialize Neon Client if URL is provided
 export function getNeonClient() {
-  if (DATABASE_URL) {
-    return neon(DATABASE_URL);
+  const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (dbUrl) {
+    return neon(dbUrl);
   }
   return null;
 }
 
 export async function isNeonConnected(): Promise<boolean> {
-  if (!DATABASE_URL) return false;
+  const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (!dbUrl) return false;
   try {
-    const sql = neon(DATABASE_URL);
+    const sql = neon(dbUrl);
     await sql`SELECT 1 as connected`;
     return true;
   } catch (err) {
     console.error('Neon connection check failed:', err);
     return false;
   }
+}
+
+export function mapUserRow(r: any): User {
+  let cognitiveScores: CognitiveScores = {
+    clinicalReasoning: 0,
+    pharmacology: 0,
+    pathophysiology: 0,
+    diagnosticsLab: 0,
+    emergencySpeed: 0,
+    evidenceEthics: 0,
+  };
+  if (r.cognitive_scores) {
+    try {
+      cognitiveScores =
+        typeof r.cognitive_scores === 'string'
+          ? JSON.parse(r.cognitive_scores)
+          : r.cognitive_scores;
+    } catch (e) {
+      console.warn('Failed to parse cognitive_scores:', e);
+    }
+  }
+
+  let badges: string[] = [];
+  if (r.badges) {
+    try {
+      badges =
+        typeof r.badges === 'string'
+          ? JSON.parse(r.badges)
+          : r.badges;
+    } catch (e) {
+      console.warn('Failed to parse badges:', e);
+    }
+  }
+
+  return {
+    id: r.id,
+    name: r.name,
+    studentId: r.student_id || r.studentId || '',
+    academicYear: r.academic_year || r.academicYear || 'السنة الأولى',
+    university: r.university || 'كلية الطب',
+    email: r.email,
+    password: r.password,
+    role: r.role || 'STUDENT',
+    level: r.level || 'STUDENT',
+    points: Number(r.points) || 0,
+    rank: Number(r.rank) || 1,
+    streak: Number(r.streak) || 1,
+    avatar: r.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(r.email || r.id)}`,
+    googleId: r.google_id || r.googleId,
+    cognitiveScores,
+    badges,
+  };
+}
+
+export function getLocalUsers(): User[] {
+  if (memoryDb && Array.isArray(memoryDb.users)) {
+    return memoryDb.users;
+  }
+
+  const tmpStore = '/tmp/medai_db.json';
+  try {
+    if (fs.existsSync(tmpStore)) {
+      const raw = fs.readFileSync(tmpStore, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.users)) {
+        return parsed.users;
+      }
+    }
+  } catch (err) {
+    console.warn('Error reading /tmp fallback store:', err);
+  }
+
+  try {
+    if (fs.existsSync(LOCAL_STORE)) {
+      const raw = fs.readFileSync(LOCAL_STORE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.users)) {
+        return parsed.users;
+      }
+    }
+  } catch (err) {
+    console.warn('Error reading LOCAL_STORE fallback store:', err);
+  }
+
+  if (fallbackDataset && Array.isArray((fallbackDataset as any).users)) {
+    return (fallbackDataset as any).users;
+  }
+
+  return [];
+}
+
+export async function getUserByEmailOrStudentId(identifier: string): Promise<User | null> {
+  const query = identifier.trim().toLowerCase();
+  const sql = getNeonClient();
+
+  if (sql) {
+    try {
+      const rows = await sql`
+        SELECT * FROM users
+        WHERE LOWER(email) = ${query} OR LOWER(student_id) = ${query}
+        LIMIT 1
+      `;
+      if (rows && rows.length > 0) {
+        return mapUserRow(rows[0]);
+      }
+      return null;
+    } catch (err) {
+      console.warn('Neon query error in getUserByEmailOrStudentId, falling back to local dataset:', err);
+    }
+  }
+
+  // Fallback to local dataset only when Neon is unavailable
+  const localUsers = getLocalUsers();
+  return (
+    localUsers.find(
+      (u) =>
+        (u.email && u.email.toLowerCase() === query) ||
+        (u.studentId && u.studentId.toLowerCase() === query) ||
+        ((u as any).student_id && (u as any).student_id.toLowerCase() === query)
+    ) || null
+  );
 }
 
 /**
@@ -260,24 +383,7 @@ export async function getDb(): Promise<Database> {
       const examsRows = await sql`SELECT * FROM course_exams`;
 
       return {
-        users: usersRows.map((r: any) => ({
-          id: r.id,
-          name: r.name,
-          studentId: r.student_id,
-          academicYear: r.academic_year,
-          university: r.university,
-          email: r.email,
-          password: r.password,
-          role: r.role,
-          level: r.level,
-          points: Number(r.points) || 0,
-          rank: Number(r.rank) || 1,
-          streak: Number(r.streak) || 1,
-          avatar: r.avatar,
-          googleId: r.google_id,
-          cognitiveScores: typeof r.cognitive_scores === 'string' ? JSON.parse(r.cognitive_scores) : r.cognitive_scores,
-          badges: typeof r.badges === 'string' ? JSON.parse(r.badges) : r.badges,
-        })),
+        users: usersRows.map((r: any) => mapUserRow(r)),
         courses: coursesRows.map((r: any) => ({
           id: r.id,
           title: r.title,
