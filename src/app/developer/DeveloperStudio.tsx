@@ -2,2019 +2,1689 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Database, Course, ClinicalCase, QuizQuestion, User, CourseLecture, CourseExam } from '@/lib/db';
-import CourseContentManager from '@/app/courses/CourseContentManager';
-import SummaryClient from '@/app/developer/SummaryClient';
+import { 
+  addCourseAction, 
+  deleteCourseAction,
+  addMaterialAction, 
+  deleteMaterialAction, 
+  addQuizAction, 
+  deleteQuizAction,
+  exportQuizAsStandaloneHtml,
+  generateAiQuizAction,
+  saveAiQuizToLmsAction
+} from './actions';
+import SummaryClient from './SummaryClient';
 
 interface DeveloperStudioProps {
-  initialDb: Database;
+  initialDb: any;
   initiallyUnlocked?: boolean;
 }
 
-export default function DeveloperStudio({
-  initialDb,
-  initiallyUnlocked = false,
-}: DeveloperStudioProps) {
-  // Security Gate State
-  const [isUnlocked, setIsUnlocked] = useState(initiallyUnlocked);
-  const [passkeyInput, setPasskeyInput] = useState('');
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
-
-  // Studio State
-  const [activeTab, setActiveTab] = useState<'studio' | 'courses' | 'leaderboard'>('studio');
-  const [studioSubTab, setStudioSubTab] = useState<'case_architect' | 'cognitive_calibration' | 'ai_sandbox' | 'neon_control' | 'course_content'>('case_architect');
-  const [db, setDb] = useState<Database>(initialDb);
+export default function DeveloperStudio({ initialDb }: DeveloperStudioProps) {
+  const [activeTab, setActiveTab] = useState<'materials' | 'quizzes' | 'ai-generator' | 'courses' | 'database' | 'summaries'>('materials');
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [db, setDb] = useState(initialDb);
 
-  // 1. Clinical Case Architect State
-  const [caseForm, setCaseForm] = useState({
-    title: 'ألم حاد بالصدر مع تعرق وانخفاض بضغط الدم',
-    specialty: 'أمراض القلب وطب الطوارئ',
-    difficulty: 'متقدم',
-    pointsReward: 250,
-    patientName: 'أبو فهد',
-    patientAge: 54,
-    patientGender: 'ذكر',
-    chiefComplaint: 'ألم عاصر خلف عظم القص يمتد للذراع اليسرى مع ضيق تنفس شديد بدأ منذ 45 دقيقة.',
-    history: 'مدخن شره، يعاني من داء السكري النمط الثاني وارتفاع الكولسترول دون التزام بالعلاج.',
-    // Vitals
-    bpSystolic: 85,
-    bpDiastolic: 55,
-    heartRate: 118,
-    respiratoryRate: 24,
-    spO2: 91,
-    temperature: 37.2,
-    gcs: 14,
-    // ECG Waveform Preset
-    ecgPreset: 'anterior_stemi',
-    // Lab Panel
-    troponin: '3.8 ng/mL (High)',
-    lactate: '2.9 mmol/L (Elevated)',
-    // Step prompt
-    stepPrompt: 'المريض في حالة صدمة قلبية وليدة الاحتشاء الحاد. ما هو التدخل العاجل الأكثر أولوية خلال الدقائق العشر القادمة؟',
-    stepOptA: 'قسطرة تداخلية أولية عاجلة (Primary PCI) مع دعم ترويضي للمضخة بالإنوتروبات',
-    stepOptB: 'إعطاء 2 لتر محلول ملحي سريع دون فحص علامات احتقان الرئة',
-    stepOptC: 'إعطاء حاصرات بيتا وريدياً فوراً لخفض تسارع ضربات القلب',
-    correctOpt: 'a',
-    stepExplanation: 'في الصدمة القلبية الناتجة عن Anterior STEMI، فتح الشريان المسدود بالقسطرة الفورية مع الحذر الشديد من إغراق الرئة بالسوائل وتجنب حاصرات بيتا هو الخيار المنقذ للحياة.',
-  });
+  // Selected course filter for lectures & exams views
+  const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>('ALL');
 
-  // 2. Cognitive Radar Calibration Weights State
-  const [radarWeights, setRadarWeights] = useState({
-    clinicalReasoning: 25,
-    pharmacology: 20,
-    pathophysiology: 15,
-    diagnosticsLab: 15,
-    emergencySpeed: 15,
-    evidenceEthics: 10,
-    errorPenaltyMultiplier: 1.5,
-  });
+  // AI Quiz Generator State
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiCourseId, setAiCourseId] = useState(initialDb.courses?.[0]?.id || 'cardio_101');
+  const [aiNotes, setAiNotes] = useState('');
+  const [aiCount, setAiCount] = useState(3);
+  const [aiDifficulty, setAiDifficulty] = useState<'basic' | 'clinical' | 'advanced'>('clinical');
+  const [aiGeneratedQuiz, setAiGeneratedQuiz] = useState<any | null>(null);
+  const [aiHtmlContent, setAiHtmlContent] = useState<string | null>(null);
+  const [aiFilename, setAiFilename] = useState<string | null>(null);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  const [isSavingAi, setIsSavingAi] = useState(false);
 
-  // 3. AI Sandbox State
-  const [aiPromptType, setAiPromptType] = useState<'case_gen' | 'pharmacology_check' | 'socratic_tutor'>('case_gen');
-  const [aiCustomInput, setAiCustomInput] = useState('');
-  const [aiOutput, setAiOutput] = useState('');
-  const [aiGenerating, setAiGenerating] = useState(false);
+  // Material / Lecture Form state
+  const [materialCourseId, setMaterialCourseId] = useState(initialDb.courses?.[0]?.id || '');
+  const [materialType, setMaterialType] = useState<'PDF' | 'DOCX' | 'PPTX' | 'PPT' | 'HTML'>('PDF');
+  const [uploadMethod, setUploadMethod] = useState<'file' | 'url' | 'code'>('file');
 
-  // 4. Course Management State
-  const [courseFilter, setCourseFilter] = useState('ALL');
-  const [newCourse, setNewCourse] = useState({
-    title: '',
-    category: 'INTERNAL_MEDICINE',
-    year: 'السنوات السريرية',
-    level: 'CLINICAL',
-    icon: '🩺',
-    badge: 'مقرر معتمد',
-    description: '',
-    estimatedHours: 16,
-  });
-
-  // 5. Leaderboard Bonus Modal State
-  const [selectedStudentForBonus, setSelectedStudentForBonus] = useState<User | null>(null);
-  const [bonusPoints, setBonusPoints] = useState(100);
-  const [bonusBadge, setBonusBadge] = useState('master_diagnostician');
-
-  // 6. Course Content Management State
-  const [selectedCourseForContent, setSelectedCourseForContent] = useState<Course | null>(null);
-  const [contentBuilderCourseId, setContentBuilderCourseId] = useState<string>(initialDb.courses[0]?.id || '');
-  const [contentActiveTab, setContentActiveTab] = useState<'lectures' | 'exams'>('lectures');
-  const [inlineLectureForm, setInlineLectureForm] = useState({
-    title: '',
-    description: '',
-    duration: '45 دقيقة',
-    fileUrl: '',
-    fileName: '',
-  });
-  const [inlineExamForm, setInlineExamForm] = useState({
-    title: '',
-    description: '',
-    timeLimitMinutes: 60,
-    totalPoints: 100,
-    passingScore: 60,
-  });
-
-  // 7. Summary Management State
-  const [showSummary, setShowSummary] = useState(false);
-  const [summaryHtmlContent, setSummaryHtmlContent] = useState<string>('');
+  // Quiz / Exam Builder state
+  const [examCourseId, setExamCourseId] = useState(initialDb.courses?.[0]?.id || '');
+  const [quizQuestions, setQuizQuestions] = useState([
+    {
+      id: 'q_init_1',
+      text: '',
+      options: ['', '', '', ''],
+      correctIndex: 0,
+      points: 20,
+      explanation: ''
+    }
+  ]);
 
   const showNotification = (text: string, type: 'success' | 'error' = 'success') => {
     setStatusMessage({ type, text });
-    setTimeout(() => setStatusMessage(null), 4000);
+    setTimeout(() => {
+      setStatusMessage(null);
+    }, 6000);
   };
 
-  // Handle Developer Verification
-  const handleUnlock = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-    setAuthLoading(true);
-
-    try {
-      const res = await fetch('/api/developer/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passkey: passkeyInput }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setIsUnlocked(true);
-        showNotification('تمت المصادقة الأمنية! مرحباً بك في استوديو المطور ⚡');
-      } else {
-        setAuthError(data.error || 'رمز الحماية غير صحيح');
+  const handleAddQuestion = () => {
+    setQuizQuestions((prev) => [
+      ...prev,
+      {
+        id: 'q_' + Date.now() + '_' + prev.length,
+        text: '',
+        options: ['', '', '', ''],
+        correctIndex: 0,
+        points: 20,
+        explanation: ''
       }
-    } catch {
-      setAuthError('حدث خطأ أثناء التحقق الأمني');
-    } finally {
-      setAuthLoading(false);
-    }
+    ]);
   };
 
-  // Add Case to DB
-  const handleCreateCase = async () => {
-    setActionLoading(true);
-    try {
-      const newCaseObj: Partial<ClinicalCase> = {
-        title: caseForm.title,
-        specialty: caseForm.specialty,
-        difficulty: caseForm.difficulty,
-        pointsReward: Number(caseForm.pointsReward),
-        patientProfile: {
-          name: caseForm.patientName,
-          age: Number(caseForm.patientAge),
-          gender: caseForm.patientGender,
-          chiefComplaint: caseForm.chiefComplaint,
-          history: caseForm.history,
-          vitals: {
-            bloodPressure: `${caseForm.bpSystolic}/${caseForm.bpDiastolic} mmHg`,
-            heartRate: `${caseForm.heartRate} bpm`,
-            respiratoryRate: `${caseForm.respiratoryRate} /min`,
-            oxygenSaturation: `${caseForm.spO2}%`,
-            temperature: `${caseForm.temperature} °C`,
-          },
-        },
-        ecgSnippet: `Preset: ${caseForm.ecgPreset} | Waveform recorded live via Medical Simulator`,
-        labResults: `Troponin: ${caseForm.troponin} | Lactate: ${caseForm.lactate}`,
-        steps: [
-          {
-            stepIndex: 1,
-            prompt: caseForm.stepPrompt,
-            options: [
-              {
-                id: 'opt_a',
-                text: caseForm.stepOptA,
-                isCorrect: caseForm.correctOpt === 'a',
-                explanation: caseForm.stepExplanation,
-              },
-              {
-                id: 'opt_b',
-                text: caseForm.stepOptB,
-                isCorrect: caseForm.correctOpt === 'b',
-                explanation: 'خاطئ: يؤدي إلى تفاقم الوذمة الرئوية الحادة أو صدمة انخفاض الضغط.',
-              },
-              {
-                id: 'opt_c',
-                text: caseForm.stepOptC,
-                isCorrect: caseForm.correctOpt === 'c',
-                explanation: 'خاطئ وموانع استعمال قاطعة في ظل انخفاض الضغط الحاد وعلامات الصدمة القلبية.',
-              },
-            ],
-          },
-        ],
-      };
+  const handleRemoveQuestion = (qIndex: number) => {
+    if (quizQuestions.length <= 1) return;
+    setQuizQuestions((prev) => prev.filter((_, idx) => idx !== qIndex));
+  };
 
-      const res = await fetch('/api/developer/update-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'ADD_CLINICAL_CASE', payload: newCaseObj }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification('تم إطلاق الحالة السريرية التفاعلية بنجاح في المنصة! 🏥');
-        setDb({
-          ...db,
-          clinicalCases: [
-            ...db.clinicalCases,
-            { ...newCaseObj, id: `case_${Date.now()}` } as ClinicalCase,
-          ],
+  const handleUpdateQuestion = (qIndex: number, field: string, value: any) => {
+    setQuizQuestions((prev) => {
+      const copy = [...prev];
+      copy[qIndex] = { ...copy[qIndex], [field]: value };
+      return copy;
+    });
+  };
+
+  const handleUpdateOption = (qIndex: number, optIndex: number, value: string) => {
+    setQuizQuestions((prev) => {
+      const copy = [...prev];
+      const opts = [...copy[qIndex].options];
+      opts[optIndex] = value;
+      copy[qIndex].options = opts;
+      return copy;
+    });
+  };
+
+  // Submit Material / Lecture
+  const handleMaterialSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsPending(true);
+    setStatusMessage(null);
+    const formData = new FormData(e.currentTarget);
+    formData.set('type', materialType);
+    
+    const res = await addMaterialAction(formData);
+    setIsPending(false);
+
+    if (res.error) {
+      showNotification(res.error, 'error');
+    } else {
+      showNotification('تم رفع ونشر المحاضرة بنجاح وإضافتها للمقرر الدراسي! 🚀', 'success');
+      
+      const newMat = res.material || res.lecture;
+      setDb((prev: any) => {
+        const updatedMaterials = [...(prev.materials || []), newMat];
+        const updatedLectures = [...(prev.lectures || []), newMat];
+        const updatedCourses = prev.courses.map((c: any) => {
+          if (c.id === newMat.courseId) {
+            return {
+              ...c,
+              lectures: [...(c.lectures || []), newMat]
+            };
+          }
+          return c;
         });
-      } else {
-        showNotification(data.error || 'فشل حفظ الحالة', 'error');
-      }
-    } catch {
-      showNotification('خطأ في الاتصال بالخادم', 'error');
-    } finally {
-      setActionLoading(false);
+        return {
+          ...prev,
+          materials: updatedMaterials,
+          lectures: updatedLectures,
+          courses: updatedCourses
+        };
+      });
+
+      (e.target as HTMLFormElement).reset();
     }
   };
 
-  // Add Course to DB
-  const handleAddCourse = async (e: React.FormEvent) => {
+  // Delete Material / Lecture
+  const handleDeleteMaterial = async (id: string) => {
+    if (!confirm('هل أنت متأكد من رغبتك في حذف هذه المحاضرة / المادة؟')) return;
+    setIsPending(true);
+    const res = await deleteMaterialAction(id);
+    setIsPending(false);
+
+    if (res.success) {
+      setDb((prev: any) => {
+        const filteredMaterials = (prev.materials || []).filter((m: any) => m.id !== id);
+        const filteredLectures = (prev.lectures || []).filter((l: any) => l.id !== id);
+        const updatedCourses = prev.courses.map((c: any) => ({
+          ...c,
+          lectures: (c.lectures || []).filter((l: any) => l.id !== id),
+          modules: (c.modules || []).filter((m: any) => m.id !== id)
+        }));
+        return {
+          ...prev,
+          materials: filteredMaterials,
+          lectures: filteredLectures,
+          courses: updatedCourses
+        };
+      });
+      showNotification('تم حذف المحاضرة بنجاح من المقرر.', 'success');
+    }
+  };
+
+  // Submit Quiz / Exam
+  const handleQuizSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!newCourse.title || !newCourse.description) {
-      showNotification('يرجى ملء عنوان ووصف المقرر', 'error');
+    setIsPending(true);
+    setStatusMessage(null);
+    const formData = new FormData(e.currentTarget);
+    formData.set('questionsJson', JSON.stringify(quizQuestions));
+
+    const res = await addQuizAction(formData);
+    setIsPending(false);
+
+    if (res.error) {
+      showNotification(res.error, 'error');
+    } else {
+      showNotification('تم إنشاء ونشر الاختبار والامتحان السريري للمقرر بنجاح! ⭐', 'success');
+      const newQ = res.quiz;
+      const newEx = res.exam;
+
+      setDb((prev: any) => {
+        const updatedQuizzes = [...(prev.quizzes || []), newQ];
+        const updatedExams = [...(prev.exams || []), newEx];
+        const updatedCourses = prev.courses.map((c: any) => {
+          if (c.id === (newEx?.courseId || newQ?.courseId)) {
+            return {
+              ...c,
+              exams: [...(c.exams || []), newEx]
+            };
+          }
+          return c;
+        });
+        return {
+          ...prev,
+          quizzes: updatedQuizzes,
+          exams: updatedExams,
+          courses: updatedCourses
+        };
+      });
+
+      // Reset questions
+      setQuizQuestions([
+        {
+          id: 'q_' + Date.now(),
+          text: '',
+          options: ['', '', '', ''],
+          correctIndex: 0,
+          points: 20,
+          explanation: ''
+        }
+      ]);
+      (e.target as HTMLFormElement).reset();
+    }
+  };
+
+  // Delete Quiz / Exam
+  const handleDeleteQuiz = async (id: string) => {
+    if (!confirm('هل أنت متأكد من رغبتك في حذف هذا الامتحان / الاختبار؟')) return;
+    setIsPending(true);
+    const res = await deleteQuizAction(id);
+    setIsPending(false);
+
+    if (res.success) {
+      setDb((prev: any) => {
+        const filteredQuizzes = (prev.quizzes || []).filter((q: any) => q.id !== id);
+        const filteredExams = (prev.exams || []).filter((e: any) => e.id !== id);
+        const updatedCourses = prev.courses.map((c: any) => ({
+          ...c,
+          exams: (c.exams || []).filter((e: any) => e.id !== id),
+          modules: (c.modules || []).filter((m: any) => m.id !== id)
+        }));
+        return {
+          ...prev,
+          quizzes: filteredQuizzes,
+          exams: filteredExams,
+          courses: updatedCourses
+        };
+      });
+      showNotification('تم حذف الاختبار بنجاح.', 'success');
+    }
+  };
+
+  // Export Quiz HTML
+  const handleDownloadQuizHtml = async (quizId: string) => {
+    setIsPending(true);
+    const res = await exportQuizAsStandaloneHtml(quizId);
+    setIsPending(false);
+
+    if (res.success && res.htmlContent) {
+      const blob = new Blob([res.htmlContent], { type: 'text/html;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = res.filename || 'quiz.html';
+      link.click();
+      showNotification('تم تحميل الاختبار التفاعلي كملف HTML مستقل يعمل بدون إنترنت! 📥', 'success');
+    } else {
+      showNotification(res.error || 'فشل تحميل ملف الاختبار', 'error');
+    }
+  };
+
+  // AI Quiz Generation Handlers
+  const handleGenerateAiQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiTopic.trim()) {
+      showNotification('يرجى كتابة عنوان الموضوع الطبي أو اسم المحاضرة', 'error');
       return;
     }
-    setActionLoading(true);
-    try {
-      const payload = {
-        ...newCourse,
-        modules: [
-          {
-            id: `m_${Date.now()}_1`,
-            title: `مقدمة في ${newCourse.title}`,
-            duration: '40 دقيقة',
-            type: 'LECTURE',
-          },
-          {
-            id: `m_${Date.now()}_2`,
-            title: 'المحاكاة والتحليلات السريرية التطبيقية',
-            duration: '50 دقيقة',
-            type: 'CASE_STUDY',
-          },
-          {
-            id: `m_${Date.now()}_3`,
-            title: 'التشخيص التفريقي والأمان الدوائي',
-            duration: '35 دقيقة',
-            type: 'PHARMACOLOGY',
-          },
-        ],
-      };
 
-      const res = await fetch('/api/developer/update-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'ADD_COURSE', payload }),
+    setIsGeneratingAi(true);
+    setStatusMessage(null);
+
+    const res = await generateAiQuizAction({
+      topic: aiTopic,
+      courseId: aiCourseId,
+      questionCount: aiCount,
+      difficulty: aiDifficulty,
+      customNotes: aiNotes
+    });
+
+    setIsGeneratingAi(false);
+
+    if (res.error) {
+      showNotification(res.error, 'error');
+    } else if (res.quiz && res.htmlContent) {
+      setAiGeneratedQuiz(res.quiz);
+      setAiHtmlContent(res.htmlContent);
+      setAiFilename(res.filename || 'quiz.html');
+      showNotification('تم توليد الحالات والأسئلة السريرية بواسطة الذكاء الاصطناعي بنجاح! 🤖⚡', 'success');
+    }
+  };
+
+  const handleDownloadAiHtml = () => {
+    if (!aiHtmlContent) return;
+    const blob = new Blob([aiHtmlContent], { type: 'text/html;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = aiFilename || 'ai_medical_quiz.html';
+    link.click();
+    showNotification('تم تنزيل ملف اختبار HTML التفاعلي المستقل بنجاح! 📥', 'success');
+  };
+
+  const handleSaveAiQuizToDb = async () => {
+    if (!aiGeneratedQuiz) return;
+    setIsSavingAi(true);
+    setStatusMessage(null);
+
+    const res = await saveAiQuizToLmsAction(aiGeneratedQuiz);
+    setIsSavingAi(false);
+
+    if (res.error) {
+      showNotification(res.error, 'error');
+    } else if (res.quiz) {
+      showNotification('تم حفظ ونشر الاختبار بنجاح في المنصة وإتاحته لجميع الطلاب! 🎉', 'success');
+      const newQ = res.quiz;
+      const newEx = res.exam;
+      setDb((prev: any) => {
+        const updatedQuizzes = [...(prev.quizzes || []), newQ];
+        const updatedExams = [...(prev.exams || []), newEx];
+        const updatedCourses = prev.courses.map((c: any) => {
+          if (c.id === (newEx?.courseId || newQ?.courseId)) {
+            return {
+              ...c,
+              exams: [...(c.exams || []), newEx]
+            };
+          }
+          return c;
+        });
+        return {
+          ...prev,
+          quizzes: updatedQuizzes,
+          exams: updatedExams,
+          courses: updatedCourses
+        };
       });
-      const data = await res.json();
-      if (data.success) {
-        showNotification('تمت إضافة المقرر الطبي بنجاح! 📚');
-        setDb({
-          ...db,
-          courses: [
-            ...db.courses,
-            {
-              ...payload,
-              id: `course_${Date.now()}`,
-              studentsCount: 0,
-              rating: 5.0,
-            } as Course,
-          ],
-        });
-        setNewCourse({
-          title: '',
-          category: 'INTERNAL_MEDICINE',
-          year: 'السنوات السريرية',
-          level: 'CLINICAL',
-          icon: '🩺',
-          badge: 'مقرر معتمد',
-          description: '',
-          estimatedHours: 16,
-        });
-      } else {
-        showNotification(data.error || 'فشل إضافة المقرر', 'error');
-      }
-    } catch {
-      showNotification('خطأ في الاتصال', 'error');
-    } finally {
-      setActionLoading(false);
+    }
+  };
+
+  // Submit Course
+  const handleCourseSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsPending(true);
+    setStatusMessage(null);
+    const formData = new FormData(e.currentTarget);
+    const res = await addCourseAction(formData);
+    setIsPending(false);
+
+    if (res.error) {
+      showNotification(res.error, 'error');
+    } else {
+      showNotification('تم إنشاء المقرر الدراسي الجديد بنجاح! 📚', 'success');
+      setDb((prev: any) => ({
+        ...prev,
+        courses: [...(prev.courses || []), res.course]
+      }));
+      (e.target as HTMLFormElement).reset();
     }
   };
 
   // Delete Course
   const handleDeleteCourse = async (courseId: string) => {
-    if (!confirm('هل أنت متأكد من رغبتك في حذف هذا المقرر الطبي؟')) return;
-    setActionLoading(true);
-    try {
-      const res = await fetch('/api/developer/update-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'DELETE_COURSE', payload: { courseId } }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification('تم حذف المقرر بنجاح');
-        setDb({ ...db, courses: db.courses.filter((c) => c.id !== courseId) });
-      }
-    } catch {
-      showNotification('خطأ في الحذف', 'error');
-    } finally {
-      setActionLoading(false);
+    if (!confirm('تحذير: هل أنت متأكد من حذف هذا المقرر وكافة المحاضرات والاختبارات التابعة له؟')) return;
+    setIsPending(true);
+    const res = await deleteCourseAction(courseId);
+    setIsPending(false);
+
+    if (res.success) {
+      setDb((prev: any) => ({
+        ...prev,
+        courses: (prev.courses || []).filter((c: any) => c.id !== courseId),
+        materials: (prev.materials || []).filter((m: any) => m.courseId !== courseId),
+        lectures: (prev.lectures || []).filter((l: any) => l.courseId !== courseId),
+        quizzes: (prev.quizzes || []).filter((q: any) => q.courseId !== courseId),
+        exams: (prev.exams || []).filter((e: any) => e.courseId !== courseId),
+      }));
+      showNotification('تم حذف المقرر بنجاح.', 'success');
     }
   };
 
-  // Add inline lecture
-  const handleAddInlineLecture = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!contentBuilderCourseId || !inlineLectureForm.title) {
-      showNotification('يرجى اختيار المقرر وكتابة عنوان المحاضرة', 'error');
-      return;
-    }
-    setActionLoading(true);
-    try {
-      const payload = {
-        courseId: contentBuilderCourseId,
-        title: inlineLectureForm.title,
-        description: inlineLectureForm.description,
-        duration: inlineLectureForm.duration || '45 دقيقة',
-        fileUrl: inlineLectureForm.fileUrl || '#',
-        fileName: inlineLectureForm.fileName || 'ملف المحاضرة',
-        fileType: 'application/pdf',
-        fileSize: 1024 * 1024 * 5,
-        isPublished: true,
-        order: ((db.lectures || []).filter((l) => l.courseId === contentBuilderCourseId).length) + 1,
-      };
-      const res = await fetch('/api/developer/update-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'ADD_LECTURE', payload }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification('تمت إضافة المحاضرة إلى المقرر بنجاح! 📑');
-        if (data.db) {
-          setDb(data.db);
-        } else {
-          const newLectures = [...(db.lectures || []), data.lecture];
-          const newCourses = db.courses.map((c) =>
-            c.id === contentBuilderCourseId ? { ...c, lectures: [...(c.lectures || []), data.lecture] } : c
-          );
-          setDb({ ...db, lectures: newLectures, courses: newCourses });
-        }
-        setInlineLectureForm({ title: '', description: '', duration: '45 دقيقة', fileUrl: '', fileName: '' });
-      } else {
-        showNotification(data.error || 'حدث خطأ أثناء إضافة المحاضرة', 'error');
-      }
-    } catch {
-      showNotification('حدث خطأ في الاتصال بالخادم', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Delete lecture
-  const handleDeleteLecture = async (lectureId: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذه المحاضرة؟')) return;
-    setActionLoading(true);
-    try {
-      const res = await fetch('/api/developer/update-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'DELETE_LECTURE', payload: { lectureId } }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification('تم حذف المحاضرة بنجاح');
-        if (data.db) {
-          setDb(data.db);
-        } else {
-          setDb({
-            ...db,
-            lectures: (db.lectures || []).filter((l) => l.id !== lectureId),
-            courses: db.courses.map((c) => ({
-              ...c,
-              lectures: (c.lectures || []).filter((l) => l.id !== lectureId),
-            })),
-          });
-        }
-      }
-    } catch {
-      showNotification('حدث خطأ أثناء الحذف', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Add inline exam
-  const handleAddInlineExam = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!contentBuilderCourseId || !inlineExamForm.title) {
-      showNotification('يرجى اختيار المقرر وكتابة عنوان الامتحان', 'error');
-      return;
-    }
-    setActionLoading(true);
-    try {
-      const payload = {
-        courseId: contentBuilderCourseId,
-        title: inlineExamForm.title,
-        description: inlineExamForm.description,
-        timeLimitMinutes: Number(inlineExamForm.timeLimitMinutes) || 60,
-        totalPoints: Number(inlineExamForm.totalPoints) || 100,
-        passingScore: Number(inlineExamForm.passingScore) || 60,
-        questions: [],
-        isPublished: true,
-        order: ((db.exams || []).filter((e) => e.courseId === contentBuilderCourseId).length) + 1,
-      };
-      const res = await fetch('/api/developer/update-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'ADD_EXAM', payload }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification('تمت إضافة الامتحان للمقرر بنجاح! 📝');
-        if (data.db) {
-          setDb(data.db);
-        } else {
-          const newExams = [...(db.exams || []), data.exam];
-          const newCourses = db.courses.map((c) =>
-            c.id === contentBuilderCourseId ? { ...c, exams: [...(c.exams || []), data.exam] } : c
-          );
-          setDb({ ...db, exams: newExams, courses: newCourses });
-        }
-        setInlineExamForm({ title: '', description: '', timeLimitMinutes: 60, totalPoints: 100, passingScore: 60 });
-      } else {
-        showNotification(data.error || 'حدث خطأ أثناء إضافة الامتحان', 'error');
-      }
-    } catch {
-      showNotification('حدث خطأ في الاتصال بالخادم', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Delete exam
-  const handleDeleteExam = async (examId: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا الامتحان؟')) return;
-    setActionLoading(true);
-    try {
-      const res = await fetch('/api/developer/update-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'DELETE_EXAM', payload: { examId } }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification('تم حذف الامتحان بنجاح');
-        if (data.db) {
-          setDb(data.db);
-        } else {
-          setDb({
-            ...db,
-            exams: (db.exams || []).filter((e) => e.id !== examId),
-            courses: db.courses.map((c) => ({
-              ...c,
-              exams: (c.exams || []).filter((e) => e.id !== examId),
-            })),
-          });
-        }
-      }
-    } catch {
-      showNotification('حدث خطأ أثناء الحذف', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle course content update from CourseContentManager modal
-  const handleCourseContentUpdate = async (updatedDb: Database) => {
-    setDb(updatedDb);
-    if (selectedCourseForContent) {
-      const refreshedCourse = updatedDb.courses.find((c) => c.id === selectedCourseForContent.id);
-      if (refreshedCourse) {
-        setSelectedCourseForContent(refreshedCourse);
-      }
-    }
-    try {
-      await fetch('/api/developer/update-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'UPDATE_FULL_DB', payload: updatedDb }),
-      });
-      showNotification('تم حفظ وتحديث محتوى المقرر في قاعدة البيانات بنجاح 💾');
-    } catch {
-      showNotification('تم تحديث البيانات محلياً', 'success');
-    }
-  };
-
-  // Award Student Bonus
-  const handleAwardBonus = async () => {
-    if (!selectedStudentForBonus) return;
-    setActionLoading(true);
-    try {
-      const res = await fetch('/api/developer/update-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'AWARD_BONUS',
-          payload: {
-            userId: selectedStudentForBonus.id,
-            bonusPoints,
-            badge: bonusBadge,
-          },
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showNotification(data.message);
-        // update local DB
-        const updatedUsers = db.users.map((u) => {
-          if (u.id === selectedStudentForBonus.id) {
-            const badges = [...u.badges];
-            if (!badges.includes(bonusBadge)) badges.push(bonusBadge);
-            return {
-              ...u,
-              points: (u.points || 0) + Number(bonusPoints),
-              badges,
-            };
-          }
-          return u;
+  // All lectures list (combining db.lectures, db.materials, and course.lectures without duplicates)
+  const allLectures = (() => {
+    const map = new Map<string, any>();
+    (db.lectures || []).forEach((l: any) => map.set(l.id, l));
+    (db.materials || []).forEach((m: any) => {
+      if (!map.has(m.id)) {
+        map.set(m.id, {
+          id: m.id,
+          courseId: m.courseId,
+          title: m.title,
+          description: m.description || '',
+          fileUrl: m.url,
+          fileName: m.title,
+          fileType: m.type,
+          duration: m.duration || '45 دقيقة',
         });
-        setDb({ ...db, users: updatedUsers });
-        setSelectedStudentForBonus(null);
-      } else {
-        showNotification(data.error || 'فشل منح المكافأة', 'error');
       }
-    } catch {
-      showNotification('خطأ في الاتصال', 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+    });
+    db.courses.forEach((c: any) => {
+      (c.lectures || []).forEach((l: any) => map.set(l.id, l));
+    });
+    return Array.from(map.values());
+  })();
 
-  // AI Prompt Simulator
-  const handleTestAi = () => {
-    setAiGenerating(true);
-    setAiOutput('');
-    setTimeout(() => {
-      if (aiPromptType === 'case_gen') {
-        setAiOutput(
-          `[AI MedStudio Engine v3.2 - Simulated Output]:\n\n` +
-          `• سيناريو الحالة المقترح: متلازمة ضيق التنفس الحادة (ARDS) تالية لذات رئة شديدة.\n` +
-          `• العلامات الحيوية: PaO2/FiO2 ratio: 140 mmHg, SpO2: 87% على قناع الأكسجين، النبض: 125/دقيقة.\n` +
-          `• الفحص الشعاعي: ارتشاحات ثنائية الجانب منتشرة (Bilateral infiltrates) دون توسع في ظل القلب.\n` +
-          `• القرار الحرج: تطبيق استراتيجية التهوية الوقائية للرئة (Low Tidal Volume Ventilation: 6 mL/kg) مع PEEP عالي وتجنب الضغط الرضحي (Barotrauma).`
-        );
-      } else if (aiPromptType === 'pharmacology_check') {
-        setAiOutput(
-          `[MedAI Clinical Pharmacist Engine]:\n\n` +
-          `• تم فحص التداخل: Clopidogrel + Omeprazole.\n` +
-          `• التحذير السريري: أوميبرازول يثبط إنزيم CYP2C19 الكبدي المسؤول عن تفعيل كلوبيدوجريل، مما يقلل فعاليته المضادة للصفيحات بنسبة تصل إلى 45% ويرفع خطر تكرار الجلطة.\n` +
-          `• التوصية السريرية: التبديل إلى Pantoprazole أو Famotidine لتقليل التثبيط الإنزيمي التنافسي.`
-        );
-      } else {
-        setAiOutput(
-          `[Socratic Clinical Tutor Response]:\n\n` +
-          `"دكتور، قبل أن نقفز مباشرة إلى طلب قسطرة تشخيصية، لاحظت أن ضغط دم المريض 75/40 وأوردة العنق محتقنة مع خفوت أصوات القلب (Beck's Triad). ما هي الحالة الجراحية الإسعافية المهددة للحياة التي يجب أن نستبعدها بالسونار الفوري عند السرير (POCUS) قبل التفكير بأي احتشاء؟"`
-        );
+  // Filtered lectures
+  const filteredLectures = selectedCourseFilter === 'ALL'
+    ? allLectures
+    : allLectures.filter((l) => l.courseId === selectedCourseFilter);
+
+  // All quizzes & exams
+  const allExams = (() => {
+    const map = new Map<string, any>();
+    (db.quizzes || []).forEach((q: any) => map.set(q.id, q));
+    (db.exams || []).forEach((e: any) => {
+      if (!map.has(e.id)) {
+        map.set(e.id, {
+          id: e.id,
+          courseId: e.courseId,
+          title: e.title,
+          description: e.description || '',
+          points: e.totalPoints || 100,
+          skillName: 'اختبار المقرر السريري',
+          questions: e.questions || []
+        });
       }
-      setAiGenerating(false);
-    }, 900);
-  };
+    });
+    db.courses.forEach((c: any) => {
+      (c.exams || []).forEach((e: any) => {
+        if (!map.has(e.id)) {
+          map.set(e.id, {
+            id: e.id,
+            courseId: e.courseId || c.id,
+            title: e.title,
+            description: e.description || '',
+            points: e.totalPoints || 100,
+            skillName: 'اختبار المقرر السريري',
+            questions: e.questions || []
+          });
+        }
+      });
+    });
+    return Array.from(map.values());
+  })();
 
-  // If locked, render the High-Security Gate
-  if (!isUnlocked) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center">
-        <div className="max-w-md w-full p-8 rounded-3xl bg-gradient-to-b from-[#0c142b] to-[#070b1a] border border-indigo-500/40 shadow-2xl space-y-6 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-950 border-2 border-indigo-500/50 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-indigo-500/30">
-            🔒
-          </div>
+  // Filtered exams
+  const filteredExams = selectedCourseFilter === 'ALL'
+    ? allExams
+    : allExams.filter((e) => e.courseId === selectedCourseFilter);
 
-          <div className="space-y-2">
-            <h2 className="text-2xl font-black text-white">منطقة المطور والمشرف الأكاديمي</h2>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              هذه المنطقة مشفرة ومخصصة للمطور والمشرف العام على المنظمة. يرجى إدخال رمز الحماية المعتمد للمتابعة.
+  return (
+    <div className="max-w-6xl mx-auto py-6 px-4" dir="rtl">
+      {/* Top Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white rounded-3xl p-8 mb-8 shadow-xl border border-indigo-900/50">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="bg-amber-400 text-amber-950 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
+                DEVELOPER STUDIO ⚡
+              </span>
+              <span className="bg-white/10 text-white/80 text-xs px-3 py-1 rounded-full">
+                صلاحيات كاملة للمطور
+              </span>
+              <span className="bg-emerald-500/20 text-emerald-300 text-xs px-3 py-1 rounded-full border border-emerald-500/30">
+                {db.courses?.length || 0} مقررات • {allLectures.length} محاضرات • {allExams.length} اختبارات
+              </span>
+            </div>
+            <h1 className="text-3xl font-black mt-3">استوديو المطور والمسؤول الأكاديمي</h1>
+            <p className="text-slate-300 text-xs mt-1 max-w-2xl leading-relaxed">
+              إضافة المحاضرات والامتحانات للمقررات بكافة الصيغ (PDF, DOCX, PPTX, PPT, HTML)، تصدير الاختبارات كملفات HTML مستقلة تعمل دون إنترنت، توليد الحالات بالذكاء الاصطناعي، وإدارة المقررات الدراسية وقاعدة البيانات.
             </p>
           </div>
 
-          {authError && (
-            <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-500/40 text-rose-300 text-xs font-bold">
-              {authError}
-            </div>
-          )}
-
-          <form onSubmit={handleUnlock} className="space-y-4">
-            <div className="space-y-1 text-right">
-              <label className="text-xs font-bold text-slate-300">رمز المرور السري / Master Key</label>
-              <input
-                type="password"
-                value={passkeyInput}
-                onChange={(e) => setPasskeyInput(e.target.value)}
-                placeholder="أدخل رمز المطور (مثال: MEDAI_DEV_2026)"
-                required
-                className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-400 font-mono text-center tracking-wider"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={authLoading}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-sm shadow-xl shadow-indigo-600/30 transition transform hover:-translate-y-0.5 disabled:opacity-50"
+          <div className="flex flex-wrap gap-2.5">
+            <Link
+              href="/courses"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-xl transition shadow-md flex items-center gap-1.5"
             >
-              {authLoading ? 'جارٍ التحقق الأمني...' : 'التحقق وفتح استوديو المطور ⚡'}
-            </button>
-          </form>
-
-          <p className="text-[11px] text-slate-500">
-            الرمز الافتراضي المعتمد للمطور: <code className="text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded">MEDAI_DEV_2026</code>
-          </p>
+              <span>📚</span>
+              <span>تصفح المقررات</span>
+            </Link>
+            <Link
+              href="/dashboard"
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition border border-white/20 flex items-center gap-1.5"
+            >
+              <span>👨‍⚕️</span>
+              <span>الرئيسية العامة</span>
+            </Link>
+          </div>
         </div>
       </div>
-    );
-  }
 
-  // Filter courses
-  const filteredCourses = db.courses.filter((c) => {
-    if (courseFilter === 'ALL') return true;
-    return c.category === courseFilter;
-  });
-
-  return (
-    <div className="space-y-8 pb-16">
-      {/* Toast Alert */}
+      {/* Status Notification Toast */}
       {statusMessage && (
-        <div
-          className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl shadow-2xl border text-sm font-bold flex items-center gap-2 animate-bounce ${
-            statusMessage.type === 'success'
-              ? 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200'
-              : 'bg-rose-950/95 border-rose-500/50 text-rose-200'
-          }`}
-        >
-          <span>{statusMessage.type === 'success' ? '⚡' : '⚠️'}</span>
-          <span>{statusMessage.text}</span>
+        <div className={`p-4 rounded-2xl mb-6 text-sm font-bold text-center border shadow-sm transition-all duration-300 ${
+          statusMessage.type === 'success' 
+            ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+            : 'bg-rose-50 text-rose-800 border-rose-300'
+        }`}>
+          {statusMessage.text}
         </div>
       )}
 
-      {/* Developer Header Banner */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#0d1633] via-slate-900 to-[#0c142b] border border-indigo-500/40 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-black">
-              ⚡ وحدة تحكم المطور والمسؤول الأكاديمي
-            </span>
-            <span className="text-xs text-emerald-400 font-mono font-bold flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              NEON LIVE
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">
-            استوديو المطور التفاعلي المتقدم (MedAI Studio Pro)
-          </h1>
-          <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-            المنصة المركزية لإدارة المناهج الطبية، هندسة الحالات السريرية الحية، معايرة الرادار المعرفي، ومتابعة لوحة المتصدرين الوطنية.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsUnlocked(false)}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-rose-950/70 text-slate-300 hover:text-rose-200 border border-slate-700 hover:border-rose-500/40 text-xs font-bold transition flex items-center gap-1.5"
-          >
-            <span>🔒</span>
-            <span>قفل الاستوديو</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main 3 Navigation Tabs (المطلوبة بالتحديد من المستخدم) */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
+      {/* Tabs Navigation Bar */}
+      <div className="flex flex-wrap gap-2 mb-8 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
         <button
-          onClick={() => setActiveTab('studio')}
-          className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-black transition flex items-center gap-2 ${
-            activeTab === 'studio'
-              ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-lg shadow-indigo-600/30'
-              : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800'
+          onClick={() => setActiveTab('materials')}
+          className={`flex-1 min-w-[150px] py-3 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+            activeTab === 'materials'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <span>🎨</span>
-          <span>استوديو المطور الإبداعي المتخصص</span>
+          <span>📁</span> رفع وإضافة المحاضرات للمقررات ({allLectures.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('quizzes')}
+          className={`flex-1 min-w-[150px] py-3 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+            activeTab === 'quizzes'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span>⚡</span> الامتحانات والاختبارات وتصدير HTML ({allExams.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('ai-generator')}
+          className={`flex-1 min-w-[170px] py-3 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+            activeTab === 'ai-generator'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span>🤖</span> توليد اختبار سريري بالذكاء الاصطناعي
         </button>
 
         <button
           onClick={() => setActiveTab('courses')}
-          className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-black transition flex items-center gap-2 ${
+          className={`flex-1 min-w-[150px] py-3 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
             activeTab === 'courses'
-              ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-lg shadow-indigo-600/30'
-              : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <span>📚</span>
-          <span>أسماء وإدارة الكورسات الطبية ({db.courses.length})</span>
+          <span>📚</span> إدارة المقررات ({db.courses?.length || 0})
         </button>
 
         <button
-          onClick={() => setActiveTab('leaderboard')}
-          className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-black transition flex items-center gap-2 ${
-            activeTab === 'leaderboard'
-              ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-lg shadow-indigo-600/30'
-              : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800'
+          onClick={() => setActiveTab('database')}
+          className={`flex-1 min-w-[130px] py-3 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+            activeTab === 'database'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <span>🏆</span>
-          <span>لوحة المتصدرين وقائمة الشرف (Leaderboard)</span>
+          <span>🔍</span> فحص قاعدة البيانات (JSON)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('summaries')}
+          className={`flex-1 min-w-[130px] py-3 px-4 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+            activeTab === 'summaries'
+              ? 'bg-indigo-700 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <span>📋</span> الملخصات والإحصائيات
         </button>
       </div>
 
       {/* ========================================================================= */}
-      {/* TAB 1: استوديو المطور الإبداعي المتخصص (Advanced Creative Studio)          */}
+      {/* TAB 1: UPLOAD & MANAGE LECTURES */}
       {/* ========================================================================= */}
-      {activeTab === 'studio' && (
-        <div className="space-y-6">
-          {/* Studio Sub-Navigation */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setStudioSubTab('case_architect')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                studioSubTab === 'case_architect'
-                  ? 'bg-cyan-500 text-slate-950 font-black'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <span>🏥</span>
-              <span>مهندس ومحاكي الحالات السريرية الحية</span>
-            </button>
-
-            <button
-              onClick={() => setStudioSubTab('cognitive_calibration')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                studioSubTab === 'cognitive_calibration'
-                  ? 'bg-cyan-500 text-slate-950 font-black'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <span>🕸️</span>
-              <span>معايرة مصفوفة الرادار المعرفي</span>
-            </button>
-
-            <button
-              onClick={() => setStudioSubTab('ai_sandbox')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                studioSubTab === 'ai_sandbox'
-                  ? 'bg-cyan-500 text-slate-950 font-black'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <span>🤖</span>
-              <span>مختبر الذكاء الاصطناعي والمحاكاة</span>
-            </button>
-
-            <button
-              onClick={() => setStudioSubTab('neon_control')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                studioSubTab === 'neon_control'
-                  ? 'bg-cyan-500 text-slate-950 font-black'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <span>🐘</span>
-              <span>مركز عمليات قاعدة بيانات Neon</span>
-            </button>
-
-            <button
-              onClick={() => setStudioSubTab('course_content')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                studioSubTab === 'course_content'
-                  ? 'bg-cyan-500 text-slate-950 font-black'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <span>📑</span>
-              <span>إدارة وتغذية المحاضرات والامتحانات</span>
-            </button>
-          </div>
-
-          {/* Sub-Tab 1: Clinical Case Architect */}
-          {studioSubTab === 'case_architect' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column: Form & Inputs */}
-              <div className="lg:col-span-7 space-y-6">
-                <div className="p-6 rounded-3xl bg-[#0c142b] border border-slate-800 space-y-5">
-                  <h3 className="font-black text-white text-base flex items-center gap-2">
-                    <span>🩺</span>
-                    <span>تصميم سيناريو الحالة السريرية التفاعلية</span>
-                  </h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-300">عنوان الحالة</label>
-                      <input
-                        type="text"
-                        value={caseForm.title}
-                        onChange={(e) => setCaseForm({ ...caseForm, title: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-300">التخصص الطبي</label>
-                      <select
-                        value={caseForm.specialty}
-                        onChange={(e) => setCaseForm({ ...caseForm, specialty: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                      >
-                        <option>أمراض القلب وطب الطوارئ</option>
-                        <option>الباطنة العامة والغدد الصماء</option>
-                        <option>طب الأطفال والإنعاش</option>
-                        <option>الجراحة العامة والحوادث</option>
-                        <option>طب الأعصاب والسكتات الدماغية</option>
-                      </select>
-                    </div>
-
-                    <div className="sm:col-span-2 space-y-1">
-                      <label className="text-xs font-bold text-slate-300">الشكوى الرئيسية والفحص السريري</label>
-                      <textarea
-                        rows={2}
-                        value={caseForm.chiefComplaint}
-                        onChange={(e) => setCaseForm({ ...caseForm, chiefComplaint: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs leading-relaxed font-semibold"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Interactive Sliders for Patient Vitals */}
-                  <div className="space-y-3 pt-3 border-t border-slate-800">
-                    <h4 className="text-xs font-black text-cyan-400 uppercase tracking-wider">
-                      محاكي العلامات الحيوية المباشرة (Live Patient Vitals)
-                    </h4>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                      {/* BP Systolic */}
-                      <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                        <div className="flex justify-between font-bold">
-                          <span className="text-slate-400">ضغط الدم الانقباضي</span>
-                          <span className={caseForm.bpSystolic < 90 ? 'text-rose-400' : 'text-emerald-400'}>
-                            {caseForm.bpSystolic} mmHg
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min="60"
-                          max="200"
-                          value={caseForm.bpSystolic}
-                          onChange={(e) => setCaseForm({ ...caseForm, bpSystolic: Number(e.target.value) })}
-                          className="w-full accent-cyan-400"
-                        />
-                      </div>
-
-                      {/* Heart Rate */}
-                      <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                        <div className="flex justify-between font-bold">
-                          <span className="text-slate-400">معدل النبض HR</span>
-                          <span className={caseForm.heartRate > 100 || caseForm.heartRate < 60 ? 'text-amber-400' : 'text-emerald-400'}>
-                            {caseForm.heartRate} bpm
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min="40"
-                          max="180"
-                          value={caseForm.heartRate}
-                          onChange={(e) => setCaseForm({ ...caseForm, heartRate: Number(e.target.value) })}
-                          className="w-full accent-amber-400"
-                        />
-                      </div>
-
-                      {/* SpO2 */}
-                      <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                        <div className="flex justify-between font-bold">
-                          <span className="text-slate-400">تشبع الأكسجين SpO2</span>
-                          <span className={caseForm.spO2 < 92 ? 'text-rose-400' : 'text-emerald-400'}>
-                            {caseForm.spO2}%
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min="75"
-                          max="100"
-                          value={caseForm.spO2}
-                          onChange={(e) => setCaseForm({ ...caseForm, spO2: Number(e.target.value) })}
-                          className="w-full accent-teal-400"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Decision Step & Options */}
-                  <div className="space-y-3 pt-3 border-t border-slate-800">
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-300">سؤال القرار الحرج للطالب</label>
-                      <input
-                        type="text"
-                        value={caseForm.stepPrompt}
-                        onChange={(e) => setCaseForm({ ...caseForm, stepPrompt: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-emerald-400">الخيار الصحيح (A):</span>
-                        <input
-                          type="text"
-                          value={caseForm.stepOptA}
-                          onChange={(e) => setCaseForm({ ...caseForm, stepOptA: e.target.value })}
-                          className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-rose-400">الخيار الخاطئ (B):</span>
-                        <input
-                          type="text"
-                          value={caseForm.stepOptB}
-                          onChange={(e) => setCaseForm({ ...caseForm, stepOptB: e.target.value })}
-                          className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      onClick={handleCreateCase}
-                      disabled={actionLoading}
-                      className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-black text-sm shadow-xl shadow-cyan-500/25 transition disabled:opacity-50"
-                    >
-                      {actionLoading ? 'جارٍ الإطلاق...' : 'إطلاق الحالة السريرية فوراً إلى المنصة 🚀'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Live Telemetry & ECG Preview */}
-              <div className="lg:col-span-5 space-y-6">
-                {/* Simulated ICU Patient Monitor */}
-                <div className="p-6 rounded-3xl bg-slate-950 border border-slate-800 space-y-4 shadow-2xl relative overflow-hidden">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-                      <span className="text-xs font-mono font-bold text-emerald-400">ICU MONITOR BEDSIDE #04</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-mono">LIVE TELEMETRY</span>
-                  </div>
-
-                  {/* Vitals Digital Readout */}
-                  <div className="grid grid-cols-2 gap-3 text-center">
-                    <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 block font-mono">HR (BPM)</span>
-                      <span className="text-3xl font-black text-emerald-400 font-mono">{caseForm.heartRate}</span>
-                    </div>
-
-                    <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 block font-mono">NIBP (mmHg)</span>
-                      <span className="text-2xl font-black text-cyan-400 font-mono">
-                        {caseForm.bpSystolic}/{caseForm.bpDiastolic}
-                      </span>
-                    </div>
-
-                    <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 block font-mono">SpO2 (%)</span>
-                      <span className="text-3xl font-black text-teal-400 font-mono">{caseForm.spO2}%</span>
-                    </div>
-
-                    <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 block font-mono">RR (/min)</span>
-                      <span className="text-3xl font-black text-amber-400 font-mono">{caseForm.respiratoryRate}</span>
-                    </div>
-                  </div>
-
-                  {/* Simulated ECG Waveform Canvas / SVG */}
-                  <div className="p-3 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-1">
-                    <div className="flex justify-between text-[10px] font-mono text-emerald-400">
-                      <span>LEAD II (ST-Elevation Anterior STEMI)</span>
-                      <span>25 mm/s | 10 mm/mV</span>
-                    </div>
-                    <svg viewBox="0 0 400 60" className="w-full h-16 text-emerald-400">
-                      <path
-                        d="M0,30 L40,30 L45,28 L50,30 L60,30 L65,10 L70,55 L75,5 L85,15 L100,18 L120,30 L160,30 L165,28 L170,30 L180,30 L185,10 L190,55 L195,5 L205,15 L220,18 L240,30 L280,30 L285,28 L290,30 L300,30 L305,10 L310,55 L315,5 L325,15 L340,18 L360,30 L400,30"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
-
-                  {/* Triage Alert */}
-                  {caseForm.bpSystolic < 90 && (
-                    <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-500/50 text-rose-300 text-xs font-bold flex items-center gap-2 animate-pulse">
-                      <span>🚨</span>
-                      <span>تحذير حرج: المريض في حالة صدمة هبوط ضغط دمي (Hypotensive Shock)</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+      {activeTab === 'materials' && (
+        <div className="space-y-8">
+          {/* Lecture Upload Card */}
+          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+            <div className="mb-6">
+              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <span>📁</span>
+                <span>إضافة ورفع محاضرة أو ملف تعليمي إلى المقرر</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                يمكنك رفع ملفات من جهازك بصيغ <strong>PDF, DOCX, PPTX, PPT, HTML</strong>، أو لصق كود HTML تفاعلي، أو إدخال رابط خارجي وتعيينها للمقرر المطلوب.
+              </p>
             </div>
-          )}
 
-          {/* Sub-Tab 2: Cognitive Radar Calibration Studio */}
-          {studioSubTab === 'cognitive_calibration' && (
-            <div className="p-6 sm:p-8 rounded-3xl bg-[#0c142b] border border-slate-800 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+            <form onSubmit={handleMaterialSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="font-black text-white text-lg flex items-center gap-2">
-                    <span>🕸️</span>
-                    <span>معايرة أوزان ومعادلات الرادار المعرفي سداسي الأبعاد</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1">
-                    ضبط الحصص النسبية للأبعاد الستة ومعامل الخصم للأخطاء السريرية القاتلة.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => showNotification('تم حفظ مصفوفة الأوزان المعرفية بنجاح!')}
-                  className="px-5 py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-black text-xs shadow-md"
-                >
-                  حفظ المعايرة
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {/* Dimension 1 */}
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                  <div className="flex justify-between text-xs font-bold text-white">
-                    <span>1. الاستدلال السريري</span>
-                    <span className="text-indigo-400 font-mono">{radarWeights.clinicalReasoning}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="40"
-                    value={radarWeights.clinicalReasoning}
-                    onChange={(e) => setRadarWeights({ ...radarWeights, clinicalReasoning: Number(e.target.value) })}
-                    className="w-full accent-indigo-400"
-                  />
-                  <p className="text-[10px] text-slate-400">وزن التشخيص التفريقي وربط الأعراض</p>
-                </div>
-
-                {/* Dimension 2 */}
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                  <div className="flex justify-between text-xs font-bold text-white">
-                    <span>2. الأمان الدوائي</span>
-                    <span className="text-purple-400 font-mono">{radarWeights.pharmacology}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="40"
-                    value={radarWeights.pharmacology}
-                    onChange={(e) => setRadarWeights({ ...radarWeights, pharmacology: Number(e.target.value) })}
-                    className="w-full accent-purple-400"
-                  />
-                  <p className="text-[10px] text-slate-400">وزن حساب الجرعات والتفاعلات العكسية</p>
-                </div>
-
-                {/* Dimension 3 */}
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                  <div className="flex justify-between text-xs font-bold text-white">
-                    <span>3. الفيزيولوجيا المرضية</span>
-                    <span className="text-cyan-400 font-mono">{radarWeights.pathophysiology}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="40"
-                    value={radarWeights.pathophysiology}
-                    onChange={(e) => setRadarWeights({ ...radarWeights, pathophysiology: Number(e.target.value) })}
-                    className="w-full accent-cyan-400"
-                  />
-                  <p className="text-[10px] text-slate-400">فهم آليات المرض الخلوية والعضوية</p>
-                </div>
-
-                {/* Dimension 4 */}
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                  <div className="flex justify-between text-xs font-bold text-white">
-                    <span>4. الفحوصات والـ ECG</span>
-                    <span className="text-teal-400 font-mono">{radarWeights.diagnosticsLab}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="40"
-                    value={radarWeights.diagnosticsLab}
-                    onChange={(e) => setRadarWeights({ ...radarWeights, diagnosticsLab: Number(e.target.value) })}
-                    className="w-full accent-teal-400"
-                  />
-                  <p className="text-[10px] text-slate-400">دقة قراءة التخطيط والتحاليل المخبرية</p>
-                </div>
-
-                {/* Dimension 5 */}
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                  <div className="flex justify-between text-xs font-bold text-white">
-                    <span>5. سرعة الطوارئ والإنعاش</span>
-                    <span className="text-amber-400 font-mono">{radarWeights.emergencySpeed}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="40"
-                    value={radarWeights.emergencySpeed}
-                    onChange={(e) => setRadarWeights({ ...radarWeights, emergencySpeed: Number(e.target.value) })}
-                    className="w-full accent-amber-400"
-                  />
-                  <p className="text-[10px] text-slate-400">معدل التدخل الحرج تحت عامل الوقت</p>
-                </div>
-
-                {/* Dimension 6 */}
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                  <div className="flex justify-between text-xs font-bold text-white">
-                    <span>6. الأخلاقيات والطب المسند</span>
-                    <span className="text-emerald-400 font-mono">{radarWeights.evidenceEthics}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="5"
-                    max="30"
-                    value={radarWeights.evidenceEthics}
-                    onChange={(e) => setRadarWeights({ ...radarWeights, evidenceEthics: Number(e.target.value) })}
-                    className="w-full accent-emerald-400"
-                  />
-                  <p className="text-[10px] text-slate-400">المبادئ التوجيهية واستقلالية المريض</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Sub-Tab 3: AI Prompt & Socratic Sandbox */}
-          {studioSubTab === 'ai_sandbox' && (
-            <div className="p-6 sm:p-8 rounded-3xl bg-[#0c142b] border border-slate-800 space-y-6">
-              <div className="space-y-1">
-                <h3 className="font-black text-white text-lg flex items-center gap-2">
-                  <span>🤖</span>
-                  <span>مختبر المحاكاة والذكاء الاصطناعي السريري (Socratic AI Prompt Studio)</span>
-                </h3>
-                <p className="text-xs text-slate-400">
-                  اختبار استجابات المساعد الذكي ومولد سيناريوهات الحالات الطبية السريرية في الوقت الفعلي.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setAiPromptType('case_gen')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold ${
-                    aiPromptType === 'case_gen' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  مولد سيناريو العناية المركزة
-                </button>
-                <button
-                  onClick={() => setAiPromptType('pharmacology_check')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold ${
-                    aiPromptType === 'pharmacology_check' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  فاحص التداخلات الدوائية
-                </button>
-                <button
-                  onClick={() => setAiPromptType('socratic_tutor')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold ${
-                    aiPromptType === 'socratic_tutor' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  المرشد السقراطي السريري
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <button
-                  onClick={handleTestAi}
-                  disabled={aiGenerating}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-slate-950 font-black text-xs shadow-md transition disabled:opacity-50"
-                >
-                  {aiGenerating ? 'جارٍ تشغيل المحرك...' : 'تشغيل محاكاة الذكاء الاصطناعي ▶'}
-                </button>
-
-                {aiOutput && (
-                  <div className="p-4 rounded-2xl bg-slate-950 border border-indigo-500/30 font-mono text-xs text-cyan-200 whitespace-pre-wrap leading-relaxed">
-                    {aiOutput}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Sub-Tab 4: Neon PostgreSQL Control */}
-          {studioSubTab === 'neon_control' && (
-            <div className="p-6 sm:p-8 rounded-3xl bg-[#0c142b] border border-slate-800 space-y-6">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl">🐘</span>
-                  <div>
-                    <h3 className="font-black text-white text-base">مركز إدارة قاعدة بيانات Neon Serverless</h3>
-                    <p className="text-xs text-slate-400">PostgreSQL Cloud Cluster • MedAI Academy Production</p>
-                  </div>
-                </div>
-                <span className="px-3 py-1 rounded-full bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
-                  ● اتصال نشط ومستقر
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
-                  <span className="text-xs text-slate-400">المستخدمون والطلاب</span>
-                  <span className="text-2xl font-black text-white block mt-1">{db.users.length}</span>
-                </div>
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
-                  <span className="text-xs text-slate-400">المقررات الطبية</span>
-                  <span className="text-2xl font-black text-cyan-400 block mt-1">{db.courses.length}</span>
-                </div>
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
-                  <span className="text-xs text-slate-400">الحالات السريرية</span>
-                  <span className="text-2xl font-black text-teal-400 block mt-1">{db.clinicalCases.length}</span>
-                </div>
-                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
-                  <span className="text-xs text-slate-400">أسئلة الرادار والمسابقات</span>
-                  <span className="text-2xl font-black text-amber-400 block mt-1">
-                    {(db.quizzes[0]?.questions.length || 0) + (db.flashcards?.length || 0)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Sub-Tab 5: Course Content Builder (Lectures & Exams) */}
-          {studioSubTab === 'course_content' && (
-            <div className="space-y-6">
-              {/* Top Banner & Course Selector */}
-              <div className="p-6 rounded-3xl bg-[#0c142b] border border-cyan-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-black text-white text-base flex items-center gap-2">
-                    <span>📑</span>
-                    <span>منشئ ومدير المحاضرات والاختبارات الأكاديمية</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1">
-                    اختر المقرر الطبي المطلوب لإضافة وتغذية المحاضرات التفاعلية والامتحانات السريرية
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-300 font-bold whitespace-nowrap">المقرر المستهدف:</span>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">المقرر الدراسي المستهدف</label>
                   <select
-                    value={contentBuilderCourseId}
-                    onChange={(e) => setContentBuilderCourseId(e.target.value)}
-                    className="px-4 py-2.5 rounded-xl bg-slate-900 border border-cyan-500/50 text-white text-xs font-bold"
+                    name="courseId"
+                    value={materialCourseId}
+                    onChange={(e) => setMaterialCourseId(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {db.courses.map((c) => (
+                    {db.courses.map((c: any) => (
                       <option key={c.id} value={c.id}>
-                        {c.icon} {c.title} ({c.year})
+                        {c.title} ({c.level || c.year || 'عام'})
                       </option>
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">صيغة ونوع المحتوى</label>
+                  <div className="flex flex-wrap gap-2">
+                    {(['PDF', 'DOCX', 'PPTX', 'PPT', 'HTML'] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setMaterialType(t)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition ${
+                          materialType === t
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {t === 'PDF' && '📄 PDF'}
+                        {t === 'DOCX' && '📝 Word (DOCX)'}
+                        {t === 'PPTX' && '📊 PowerPoint (PPTX)'}
+                        {t === 'PPT' && '📊 PPT'}
+                        {t === 'HTML' && '🌐 HTML تفاعلي'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* Course Info Card & Quick Stats */}
-              {(() => {
-                const currentCourse = db.courses.find((c) => c.id === contentBuilderCourseId) || db.courses[0];
-                if (!currentCourse) return null;
-                const courseLectures = (db.lectures || []).filter((l) => l.courseId === currentCourse.id);
-                const courseExams = (db.exams || []).filter((e) => e.courseId === currentCourse.id);
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">عنوان المحاضرة</label>
+                  <input
+                    type="text"
+                    name="title"
+                    required
+                    placeholder="مثال: تشريح الجهاز الدوري والقلب - المحاضرة 4"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-                return (
-                  <div className="space-y-6">
-                    {/* Course Summary Banner */}
-                    <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">مدة المحاضرة المقدرة</label>
+                  <input
+                    type="text"
+                    name="duration"
+                    defaultValue="45 دقيقة"
+                    placeholder="مثال: 45 دقيقة"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">وصف ومحاور المحاضرة (اختياري)</label>
+                <textarea
+                  name="description"
+                  rows={2}
+                  placeholder="نبذة عن الأهداف التعليمية والمفاهيم السريرية المغطاة في هذه المحاضرة..."
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed"
+                />
+              </div>
+
+              {/* Upload method selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">طريقة إضافة الملف</label>
+                <div className="flex gap-4 mb-4">
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="uploadMethod"
+                      checked={uploadMethod === 'file'}
+                      onChange={() => setUploadMethod('file')}
+                    />
+                    <span>رفع ملف من جهازي 📤</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="uploadMethod"
+                      checked={uploadMethod === 'url'}
+                      onChange={() => setUploadMethod('url')}
+                    />
+                    <span>رابط خارجي (URL) 🔗</span>
+                  </label>
+                  {materialType === 'HTML' && (
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="uploadMethod"
+                        checked={uploadMethod === 'code'}
+                        onChange={() => setUploadMethod('code')}
+                      />
+                      <span>كتابة كود HTML تفاعلي 💻</span>
+                    </label>
+                  )}
+                </div>
+
+                {uploadMethod === 'file' && (
+                  <div className="p-6 border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 text-center">
+                    <input
+                      type="file"
+                      name="file"
+                      accept=".pdf,.docx,.pptx,.ppt,.html,.htm"
+                      className="text-xs text-slate-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+                    />
+                    <span className="block text-[11px] text-slate-400 mt-2">
+                      يدعم ملفات: PDF, DOCX, PPTX, PPT, HTML
+                    </span>
+                  </div>
+                )}
+
+                {uploadMethod === 'url' && (
+                  <input
+                    type="text"
+                    name="url"
+                    placeholder="https://example.com/lecture.pdf"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-mono text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    dir="ltr"
+                  />
+                )}
+
+                {uploadMethod === 'code' && (
+                  <textarea
+                    name="rawHtml"
+                    rows={6}
+                    placeholder="<div class='p-6 bg-blue-50'><h2>دراسة تشريح القلب...</h2></div>"
+                    className="w-full px-4 py-3 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl border border-slate-800"
+                    dir="ltr"
+                  />
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={isPending}
+                className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition text-sm shadow-md disabled:opacity-50 flex items-center gap-2"
+              >
+                {isPending ? 'جاري الرفع والحفظ...' : 'حفظ ونشر المحاضرة في المقرر 🚀'}
+              </button>
+            </form>
+          </div>
+
+          {/* Uploaded Materials & Lectures List */}
+          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <div>
+                <h3 className="text-xl font-black text-slate-900">
+                  المحاضرات والملفات المرفوعة ({filteredLectures.length})
+                </h3>
+                <p className="text-xs text-slate-400">يمكنك تحميل أي ملف مباشرة أو حذفه أو توليد اختبار سريري منه</p>
+              </div>
+
+              {/* Course Filter Dropdown */}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-xs font-bold text-slate-500 shrink-0">تصفية حسب المقرر:</span>
+                <select
+                  value={selectedCourseFilter}
+                  onChange={(e) => setSelectedCourseFilter(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none"
+                >
+                  <option value="ALL">جميع المقررات ({allLectures.length})</option>
+                  {db.courses.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {filteredLectures.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 text-xs font-bold">
+                  لا توجد محاضرات مرفوعة لهذا المقرر بعد. استخدم النموذج أعلاه لرفع المحاضرة الأولى!
+                </div>
+              ) : (
+                filteredLectures.map((m: any) => {
+                  const course = db.courses.find((c: any) => c.id === m.courseId);
+                  return (
+                    <div key={m.id} className="py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div className="flex items-center gap-3">
-                        <span className="text-3xl p-2 bg-slate-950 rounded-xl border border-slate-800">
-                          {currentCourse.icon}
+                        <span className="px-2.5 py-1 text-xs font-black rounded-lg bg-indigo-100 text-indigo-800 border border-indigo-200">
+                          {m.fileType || m.type || 'PDF'}
                         </span>
                         <div>
-                          <h4 className="text-sm font-black text-white">{currentCourse.title}</h4>
-                          <p className="text-xs text-slate-400">{currentCourse.description}</p>
+                          <h4 className="font-bold text-slate-800 text-sm">{m.title}</h4>
+                          <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+                            <span className="text-blue-600 font-semibold">{course ? course.title : 'مقرر عام'}</span>
+                            {m.duration && <span>⏱️ {m.duration}</span>}
+                          </div>
+                          {m.description && (
+                            <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{m.description}</p>
+                          )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="px-3 py-1 rounded-xl bg-indigo-950 text-indigo-300 border border-indigo-500/30 text-xs font-bold">
-                          📑 {courseLectures.length} محاضرات
-                        </span>
-                        <span className="px-3 py-1 rounded-xl bg-amber-950 text-amber-300 border border-amber-500/30 text-xs font-bold">
-                          📝 {courseExams.length} اختبارات
-                        </span>
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                        {/* AI Quiz Generator Button */}
                         <button
-                          onClick={() => setSelectedCourseForContent(currentCourse)}
-                          className="px-4 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs transition shadow-md"
+                          type="button"
+                          onClick={() => {
+                            setAiTopic(m.title);
+                            setAiCourseId(m.courseId || db.courses[0]?.id);
+                            setActiveTab('ai-generator');
+                            window.scrollTo({ top: 300, behavior: 'smooth' });
+                          }}
+                          className="px-3 py-1.5 bg-gradient-to-r from-teal-50 to-emerald-50 hover:from-teal-100 hover:to-emerald-100 text-teal-800 border border-teal-200 text-xs font-bold rounded-xl transition flex items-center gap-1 shadow-sm"
+                          title="توليد اختبار HTML تفاعلي بالذكاء الاصطناعي من محتوى هذه المحاضرة"
                         >
-                          فتح نافذة الرفع الموسعة 🚀
+                          <span>🤖</span>
+                          <span>توليد اختبار ذكي</span>
+                        </button>
+
+                        {/* Direct Download Button */}
+                        <a
+                          href={m.fileUrl || m.url || '#'}
+                          download={m.fileName || m.title}
+                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-xl transition flex items-center gap-1"
+                        >
+                          <span>📥</span>
+                          <span>تحميل الملف</span>
+                        </a>
+
+                        {/* Preview Button */}
+                        <a
+                          href={m.fileUrl || m.url || '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition"
+                        >
+                          معاينة ↗
+                        </a>
+
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMaterial(m.id)}
+                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition"
+                        >
+                          حذف 🗑️
                         </button>
                       </div>
                     </div>
-
-                    {/* Toggle Between Adding Lecture vs Adding Exam */}
-                    <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-                      <button
-                        onClick={() => setContentActiveTab('lectures')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                          contentActiveTab === 'lectures'
-                            ? 'bg-indigo-600 text-white shadow-md'
-                            : 'bg-slate-900 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <span>📑</span>
-                        <span>إضافة وإدارة المحاضرات ({courseLectures.length})</span>
-                      </button>
-                      <button
-                        onClick={() => setContentActiveTab('exams')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                          contentActiveTab === 'exams'
-                            ? 'bg-amber-600 text-white shadow-md'
-                            : 'bg-slate-900 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <span>📝</span>
-                        <span>إضافة وإدارة الامتحانات ({courseExams.length})</span>
-                      </button>
-                    </div>
-
-                    {/* LECTURES SECTION */}
-                    {contentActiveTab === 'lectures' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        {/* Add Lecture Form */}
-                        <div className="lg:col-span-6 p-6 rounded-3xl bg-[#0c142b] border border-indigo-500/30 space-y-4">
-                          <h4 className="text-sm font-black text-white flex items-center gap-2">
-                            <span>➕</span>
-                            <span>إضافة محاضرة جديدة لهذا المقرر</span>
-                          </h4>
-                          <form onSubmit={handleAddInlineLecture} className="space-y-3">
-                            <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-300">عنوان المحاضرة</label>
-                              <input
-                                type="text"
-                                required
-                                value={inlineLectureForm.title}
-                                onChange={(e) => setInlineLectureForm({ ...inlineLectureForm, title: e.target.value })}
-                                placeholder="مثال: التدبير الحرج لاحتشاء الجدار السفلي وحصار القلب"
-                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                              />
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-300">الوصف والأهداف التعليمية</label>
-                              <textarea
-                                rows={2}
-                                value={inlineLectureForm.description}
-                                onChange={(e) => setInlineLectureForm({ ...inlineLectureForm, description: e.target.value })}
-                                placeholder="شرح موجز لمحتوى المحاضرة والنقاط السريرية المحورية..."
-                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-300">المدة الزمنية المقدرة</label>
-                                <input
-                                  type="text"
-                                  value={inlineLectureForm.duration}
-                                  onChange={(e) => setInlineLectureForm({ ...inlineLectureForm, duration: e.target.value })}
-                                  placeholder="مثال: 45 دقيقة"
-                                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-300">اسم الملف / المرجع</label>
-                                <input
-                                  type="text"
-                                  value={inlineLectureForm.fileName}
-                                  onChange={(e) => setInlineLectureForm({ ...inlineLectureForm, fileName: e.target.value })}
-                                  placeholder="مثال: ECG_Lecture_Slides.pdf"
-                                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-300">رابط الملف / الفيديو / المستند (اختياري)</label>
-                              <input
-                                type="text"
-                                value={inlineLectureForm.fileUrl}
-                                onChange={(e) => setInlineLectureForm({ ...inlineLectureForm, fileUrl: e.target.value })}
-                                placeholder="https://... أو مسار الملف"
-                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold font-mono"
-                              />
-                            </div>
-
-                            <button
-                              type="submit"
-                              disabled={actionLoading}
-                              className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                              <span>➕</span>
-                              <span>حفظ وإضافة المحاضرة للمقرر</span>
-                            </button>
-                          </form>
-                        </div>
-
-                        {/* Existing Lectures List */}
-                        <div className="lg:col-span-6 p-6 rounded-3xl bg-[#0c142b] border border-slate-800 space-y-4">
-                          <h4 className="text-sm font-black text-white flex items-center justify-between">
-                            <span>المحاضرات المتاحة حالياً ({courseLectures.length})</span>
-                            <span className="text-xs text-indigo-400 font-normal">مرتبة حسب التسلسل</span>
-                          </h4>
-
-                          {courseLectures.length === 0 ? (
-                            <div className="text-center py-8 text-slate-500 text-xs border border-dashed border-slate-800 rounded-2xl">
-                              لا توجد محاضرات مضافة لهذا المقرر بعد. استخدم النموذج لإضافة أول محاضرة!
-                            </div>
-                          ) : (
-                            <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-                              {courseLectures.map((lec, idx) => (
-                                <div
-                                  key={lec.id || idx}
-                                  className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between gap-3 text-xs"
-                                >
-                                  <div className="space-y-0.5 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="w-5 h-5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500/40 text-[10px] font-black flex items-center justify-center shrink-0">
-                                        {idx + 1}
-                                      </span>
-                                      <span className="font-bold text-white truncate">{lec.title}</span>
-                                    </div>
-                                    <p className="text-[11px] text-slate-400 line-clamp-1">{lec.description || lec.fileName}</p>
-                                  </div>
-
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <span className="text-[10px] text-cyan-400 font-mono">{lec.duration || '60 دقيقة'}</span>
-                                    <button
-                                      onClick={() => handleDeleteLecture(lec.id)}
-                                      title="حذف المحاضرة"
-                                      className="p-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/30 transition text-xs"
-                                    >
-                                      🗑️
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* EXAMS SECTION */}
-                    {contentActiveTab === 'exams' && (
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        {/* Add Exam Form */}
-                        <div className="lg:col-span-6 p-6 rounded-3xl bg-[#0c142b] border border-amber-500/30 space-y-4">
-                          <h4 className="text-sm font-black text-white flex items-center gap-2">
-                            <span>➕</span>
-                            <span>إضافة اختبار / امتحان جديد لهذا المقرر</span>
-                          </h4>
-                          <form onSubmit={handleAddInlineExam} className="space-y-3">
-                            <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-300">عنوان الاختبار</label>
-                              <input
-                                type="text"
-                                required
-                                value={inlineExamForm.title}
-                                onChange={(e) => setInlineExamForm({ ...inlineExamForm, title: e.target.value })}
-                                placeholder="مثال: الاختبار السريري النصفي في الفيزيولوجيا القلبية"
-                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                              />
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="text-xs font-bold text-slate-300">الوصف والتعليمات</label>
-                              <textarea
-                                rows={2}
-                                value={inlineExamForm.description}
-                                onChange={(e) => setInlineExamForm({ ...inlineExamForm, description: e.target.value })}
-                                placeholder="تعليمات الاختبار، معايير التقييم، ونوعية الأسئلة السريرية..."
-                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-3">
-                              <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-300">المدة (بالدقائق)</label>
-                                <input
-                                  type="number"
-                                  value={inlineExamForm.timeLimitMinutes}
-                                  onChange={(e) => setInlineExamForm({ ...inlineExamForm, timeLimitMinutes: Number(e.target.value) })}
-                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-300">مجموع النقاط</label>
-                                <input
-                                  type="number"
-                                  value={inlineExamForm.totalPoints}
-                                  onChange={(e) => setInlineExamForm({ ...inlineExamForm, totalPoints: Number(e.target.value) })}
-                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-300">درجة النجاح</label>
-                                <input
-                                  type="number"
-                                  value={inlineExamForm.passingScore}
-                                  onChange={(e) => setInlineExamForm({ ...inlineExamForm, passingScore: Number(e.target.value) })}
-                                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                                />
-                              </div>
-                            </div>
-
-                            <button
-                              type="submit"
-                              disabled={actionLoading}
-                              className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs shadow-md transition disabled:opacity-50 flex items-center justify-center gap-2"
-                            >
-                              <span>➕</span>
-                              <span>حفظ وإضافة الاختبار للمقرر</span>
-                            </button>
-                          </form>
-                        </div>
-
-                        {/* Existing Exams List */}
-                        <div className="lg:col-span-6 p-6 rounded-3xl bg-[#0c142b] border border-slate-800 space-y-4">
-                          <h4 className="text-sm font-black text-white flex items-center justify-between">
-                            <span>الاختبارات المسجلة حالياً ({courseExams.length})</span>
-                            <span className="text-xs text-amber-400 font-normal">جاهزة للطلاب</span>
-                          </h4>
-
-                          {courseExams.length === 0 ? (
-                            <div className="text-center py-8 text-slate-500 text-xs border border-dashed border-slate-800 rounded-2xl">
-                              لا توجد اختبارات مضافة لهذا المقرر بعد. أضف اختباراً جديداً الآن!
-                            </div>
-                          ) : (
-                            <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-                              {courseExams.map((ex, idx) => (
-                                <div
-                                  key={ex.id || idx}
-                                  className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition flex items-center justify-between gap-3 text-xs"
-                                >
-                                  <div className="space-y-0.5 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="w-5 h-5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40 text-[10px] font-black flex items-center justify-center shrink-0">
-                                        {idx + 1}
-                                      </span>
-                                      <span className="font-bold text-white truncate">{ex.title}</span>
-                                    </div>
-                                    <p className="text-[11px] text-slate-400">
-                                      ⏱️ {ex.timeLimitMinutes} دقيقة • النجاح: {ex.passingScore} من {ex.totalPoints}
-                                    </p>
-                                  </div>
-
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <button
-                                      onClick={() => handleDeleteExam(ex.id)}
-                                      title="حذف الاختبار"
-                                      className="p-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/30 transition text-xs"
-                                    >
-                                      🗑️
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+                  );
+                })
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: أسماء وإدارة الكورسات الطبية (Courses Management)                   */}
+      {/* TAB 2: EXAMS, QUIZZES & EXPORT STANDALONE HTML */}
       {/* ========================================================================= */}
-      {activeTab === 'courses' && (
-        <div className="space-y-6">
-          {/* Header & Filter */}
-          <div className="p-6 rounded-3xl bg-[#0c142b] border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-black text-white text-lg flex items-center gap-2">
-                <span>📚</span>
-                <span>قائمة وأسماء المقررات الطبية المعتمدة</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                إجمالي المقررات: {db.courses.length} مقرر • يمكنك تعديل وإضافة أو حذف أي مقرر.
+      {activeTab === 'quizzes' && (
+        <div className="space-y-8">
+          {/* Export Existing Quizzes as Standalone HTML */}
+          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                  <span>⚡</span>
+                  <span>الامتحانات والاختبارات وتصدير HTML تفاعلي ({filteredExams.length})</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  حمّل أي اختبار كملف HTML مستقل كامل يعمل على أي هاتف أو جهاز كمبيوتر حتى <strong>بدون إنترنت (100% Offline)</strong>
+                </p>
+              </div>
+
+              {/* Course Filter Dropdown */}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <span className="text-xs font-bold text-slate-500 shrink-0">تصفية حسب المقرر:</span>
+                <select
+                  value={selectedCourseFilter}
+                  onChange={(e) => setSelectedCourseFilter(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none"
+                >
+                  <option value="ALL">جميع المقررات ({allExams.length})</option>
+                  {db.courses.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredExams.length === 0 ? (
+                <div className="col-span-2 py-8 text-center text-slate-400 text-xs font-bold">
+                  لا توجد اختبارات مسجلة لهذا المقرر حالياً.
+                </div>
+              ) : (
+                filteredExams.map((q: any) => {
+                  const course = db.courses.find((c: any) => c.id === q.courseId);
+                  return (
+                    <div key={q.id} className="p-5 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col justify-between gap-4">
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full">
+                            {q.skillName || 'تقييم سريري'}
+                          </span>
+                          <span className="text-xs font-black text-emerald-600">+{q.points || q.totalPoints || 50} نقطة</span>
+                        </div>
+                        <h4 className="font-black text-slate-900 text-base mb-1">{q.title}</h4>
+                        <div className="flex items-center gap-3 text-xs text-slate-400 mb-2">
+                          <span className="text-indigo-600 font-semibold">{course ? course.title : 'مقرر عام'}</span>
+                          {q.timeLimitMinutes && <span>⏱️ {q.timeLimitMinutes} دقيقة</span>}
+                        </div>
+                        <p className="text-xs text-slate-500">{q.questions?.length || 0} أسئلة مع تصحيح سريري فوري</p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onClick={() => handleDownloadQuizHtml(q.id)}
+                          className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition shadow-sm flex items-center justify-center gap-2"
+                        >
+                          <span>📥</span>
+                          <span>تحميل كـ HTML مستقل (Offline)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteQuiz(q.id)}
+                          className="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition"
+                          title="حذف الاختبار"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Create New Quiz / Exam Form */}
+          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+            <div className="mb-6">
+              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <span>📝</span>
+                <span>إنشاء وتعيين امتحان واختبار سريري جديد للمقرر</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">أضف امتحاناً للمقرر مع تحديد الإجابات الصحيحة والتفسير السريري ودرجة النجاح</p>
+            </div>
+
+            <form onSubmit={handleQuizSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">المقرر الدراسي المستهدف</label>
+                  <select
+                    name="courseId"
+                    value={examCourseId}
+                    onChange={(e) => setExamCourseId(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {db.courses.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">المجال المعرفي الطبي</label>
+                  <select
+                    name="skillCategory"
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="clinicalReasoning">🧠 التفكير والتشخيص السريري التفريقي</option>
+                    <option value="pharmacology">💊 الأمان الدوائي وعلم الأدوية السريري</option>
+                    <option value="pathophysiology">🫀 التحليل الفسيولوجي والمرضي</option>
+                    <option value="diagnosticsLab">🔬 تفسير التحاليل والفحوصات وتخطيط القلب</option>
+                    <option value="emergencySpeed">⚡ طب الطوارئ والتدخل الحرج السريع</option>
+                    <option value="foundationalKnowledge">🦴 المعرفة التأسيسية والاسترجاع الدقيق</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-2">اسم المهارة المعروض</label>
+                  <input
+                    type="text"
+                    name="skillName"
+                    defaultValue="الاستدلال السريري المتقدم"
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">عنوان الاختبار / الامتحان</label>
+                  <input
+                    type="text"
+                    name="title"
+                    required
+                    placeholder="مثال: الحالات السريرية الطارئة لكسور الحوض والفقرات"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">الزمن (دقائق)</label>
+                    <input
+                      type="number"
+                      name="timeLimitMinutes"
+                      defaultValue={15}
+                      min={1}
+                      max={180}
+                      required
+                      className="w-full px-3 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm text-center font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">نسبة النجاح %</label>
+                    <input
+                      type="number"
+                      name="passingScore"
+                      defaultValue={60}
+                      min={10}
+                      max={100}
+                      required
+                      className="w-full px-3 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm text-center font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">وصف الامتحان والتعليمات للطلاب</label>
+                <textarea
+                  name="description"
+                  rows={2}
+                  placeholder="تعليمات الاختبار، نظام النقاط، والنقاط الإكلينيكية التي يجب مراعاتها..."
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs leading-relaxed"
+                />
+              </div>
+
+              {/* Questions Section */}
+              <div className="space-y-6 pt-4 border-t border-slate-100">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-base font-black text-slate-800">
+                    الأسئلة والسيناريوهات الإكلينيكية ({quizQuestions.length})
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={handleAddQuestion}
+                    className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition flex items-center gap-1 border border-indigo-200"
+                  >
+                    <span>+</span>
+                    <span>إضافة سؤال جديد</span>
+                  </button>
+                </div>
+
+                {quizQuestions.map((q, qIdx) => (
+                  <div key={q.id} className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-black text-blue-700 bg-blue-100 px-3 py-1 rounded-full">
+                        السؤال {qIdx + 1}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-slate-500 font-bold">النقاط:</span>
+                          <input
+                            type="number"
+                            value={q.points}
+                            onChange={(e) => handleUpdateQuestion(qIdx, 'points', Number(e.target.value))}
+                            className="w-16 px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs text-center font-bold"
+                          />
+                        </div>
+                        {quizQuestions.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveQuestion(qIdx)}
+                            className="text-xs text-rose-600 hover:text-rose-800 font-bold px-2 py-1 rounded-lg hover:bg-rose-50"
+                          >
+                            حذف السؤال ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">نص السؤال أو السيناريو السريري</label>
+                      <input
+                        type="text"
+                        value={q.text}
+                        onChange={(e) => handleUpdateQuestion(qIdx, 'text', e.target.value)}
+                        placeholder="مثال: مريض يبلغ من العمر 45 عاماً يعاني من ألم صدري..."
+                        required
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm"
+                      />
+                    </div>
+
+                    {/* Choices */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-slate-700">
+                        خيارات الإجابة (حدد الدائرة أمام الإجابة الصحيحة)
+                      </label>
+                      {q.options.map((opt, optIdx) => (
+                        <div key={optIdx} className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name={`correct_${q.id}`}
+                            checked={q.correctIndex === optIdx}
+                            onChange={() => handleUpdateQuestion(qIdx, 'correctIndex', optIdx)}
+                            className="w-4 h-4 text-blue-600 cursor-pointer"
+                            title="اختر كإجابة صحيحة"
+                          />
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => handleUpdateOption(qIdx, optIdx, e.target.value)}
+                            placeholder={`الخيار ${optIdx + 1}`}
+                            required
+                            className={`flex-1 px-3 py-2 rounded-xl text-xs border ${
+                              q.correctIndex === optIdx 
+                                ? 'border-emerald-500 bg-emerald-50 font-bold text-emerald-950' 
+                                : 'border-slate-300 bg-white'
+                            }`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">التفسير الطبي والسريري (المنطق السريري)</label>
+                      <input
+                        type="text"
+                        value={q.explanation}
+                        onChange={(e) => handleUpdateQuestion(qIdx, 'explanation', e.target.value)}
+                        placeholder="وضح لماذا هذا الخيار صحيح وما هو المبدأ السريري المعتمد..."
+                        required
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="submit"
+                disabled={isPending}
+                className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition text-sm shadow-md disabled:opacity-50 flex items-center gap-2"
+              >
+                {isPending ? 'جاري النشر...' : 'نشر الامتحان كاملاً وإتاحته للطلاب ⭐'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: AI MEDICAL QUIZ & HTML GENERATOR */}
+      {/* ========================================================================= */}
+      {activeTab === 'ai-generator' && (
+        <div className="space-y-8">
+          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1.5">
+                  <span>🤖</span>
+                  <span>الذكاء الاصطناعي السريري (Clinical AI Engine)</span>
+                </span>
+                <span className="bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1 rounded-full border border-blue-100">
+                  توليد وتصدير HTML تفاعلي مستقل
+                </span>
+              </div>
+              <h2 className="text-2xl font-black text-slate-900">مُولّد الاختبارات والحالات السريرية بالذكاء الاصطناعي</h2>
+              <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
+                يقوم الذكاء الاصطناعي بتحليل الموضوع الطبي أو محتوى المحاضرة وصياغة سيناريوهات مرضية واقعية (Patient Vignettes) مطابقة لمعايير USMLE والامتحانات الطبية المعتمدة، مع توليد فوري لملف HTML مستقل يعمل بدون إنترنت أو حفظه مباشرة في المقرر.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {['ALL', 'INTERNAL_MEDICINE', 'EMERGENCY', 'BASIC_SCIENCE'].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setCourseFilter(cat)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
-                    courseFilter === cat
-                      ? 'bg-cyan-500 text-slate-950 font-black'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                  }`}
-                >
-                  {cat === 'ALL'
-                    ? 'الكل'
-                    : cat === 'INTERNAL_MEDICINE'
-                    ? 'الباطنة العامة'
-                    : cat === 'EMERGENCY'
-                    ? 'الطوارئ'
-                    : 'العلوم الأساسية'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Content Manager Selector Bar */}
-          <div className="p-5 rounded-3xl bg-gradient-to-r from-indigo-950/80 via-slate-900 to-cyan-950/80 border border-indigo-500/40 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl p-2.5 rounded-2xl bg-indigo-950 border border-indigo-500/40 shrink-0">📑</span>
-              <div>
-                <h4 className="text-sm font-black text-white flex items-center gap-2">
-                  <span>إدارة وإضافة المحاضرات والامتحانات للمقررات</span>
-                  <span className="text-[10px] bg-cyan-500 text-slate-950 px-2 py-0.5 rounded-full font-black">مباشر</span>
-                </h4>
-                <p className="text-xs text-slate-300 mt-0.5">
-                  ارفع المحاضرات والمراجع المعتمدة، وأنشئ الاختبارات السريرية التفاعلية لأي مقرر طبي
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <select
-                onChange={(e) => {
-                  const found = db.courses.find((c) => c.id === e.target.value);
-                  if (found) setSelectedCourseForContent(found);
-                }}
-                defaultValue=""
-                className="px-4 py-2.5 rounded-xl bg-slate-900 border border-cyan-500/50 text-white text-xs font-bold w-full md:w-64 cursor-pointer"
-              >
-                <option value="" disabled>-- اختر مقرراً لإضافة محتواه --</option>
-                {db.courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icon} {c.title}
-                  </option>
+            {/* Quick Topic Presets */}
+            <div className="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200/80">
+              <label className="block text-xs font-bold text-slate-600 mb-2.5">
+                ⚡ مواضيع سريرية سريعة وشائعة (انقر للتعبئة الفورية):
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { name: 'احتشاء عضلة القلب الحاد (STEMI)', cat: 'cardio' },
+                  { name: 'قصور القلب الاحتقاني الحاد والوذمة الرئوية', cat: 'cardio' },
+                  { name: 'الصمة الرئوية الحادة (Pulmonary Embolism)', cat: 'pulm' },
+                  { name: 'نوبة الربو الحادة والصدر الصامت (Silent Chest)', cat: 'pulm' },
+                  { name: 'السكتة الدماغية ومذيبات الخثرات (Ischemic Stroke)', cat: 'neuro' },
+                  { name: 'شلل العصب الوجهي المحيطي (Bell\'s Palsy)', cat: 'neuro' },
+                  { name: 'التهاب البنكرياس الحاد والإنعاش بالسوائل', cat: 'gi' },
+                  { name: 'الحماض الكيتوني السكري (DKA)', cat: 'endo' },
+                  { name: 'علم الأدوية وحماية الكلى (ACEi vs ARBs)', cat: 'pharm' },
+                  { name: 'الإنعاش القلبي الرئوي وطب الطوارئ (ACLS Protocol)', cat: 'emergency' }
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setAiTopic(preset.name)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
+                      aiTopic === preset.name
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {preset.name}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
-          </div>
 
-          {/* Add New Course Form */}
-          <div className="p-6 rounded-3xl bg-[#0c142b] border border-indigo-500/30 space-y-4">
-            <h4 className="font-black text-white text-sm flex items-center gap-2">
-              <span>➕</span>
-              <span>إضافة مقرر طبي جديد إلى المنصة</span>
-            </h4>
+            {/* Form */}
+            <form onSubmit={handleGenerateAiQuiz} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">المقرر الدراسي المرتبط</label>
+                  <select
+                    value={aiCourseId}
+                    onChange={(e) => setAiCourseId(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold"
+                  >
+                    {db.courses.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <form onSubmit={handleAddCourse} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">اسم المقرر الطبي</label>
-                <input
-                  type="text"
-                  value={newCourse.title}
-                  onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
-                  placeholder="مثال: جراحة العظام والكسور الحادة"
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">عنوان الموضوع الطبي أو المحاضرة</label>
+                  <input
+                    type="text"
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                    required
+                    placeholder="مثال: التدبير الإسعافي لمتلازمة الشريان التاجي الحادة..."
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  ملخص المحاضرة أو ملاحظات سريرية خاصة (اختياري)
+                </label>
+                <textarea
+                  value={aiNotes}
+                  onChange={(e) => setAiNotes(e.target.value)}
+                  rows={3}
+                  placeholder="يمكنك لصق نقاط المحاضرة، الأهداف التعليمية، أو ملخص الحالة التي ترغب بالتركيز عليها..."
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-xs leading-relaxed"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">التصنيف</label>
-                <select
-                  value={newCourse.category}
-                  onChange={(e) => setNewCourse({ ...newCourse, category: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                >
-                  <option value="INTERNAL_MEDICINE">الباطنة العامة</option>
-                  <option value="EMERGENCY">طب الطوارئ</option>
-                  <option value="BASIC_SCIENCE">العلوم الأساسية</option>
-                  <option value="SURGERY">الجراحة العامة</option>
-                  <option value="PEDIATRICS">طب الأطفال</option>
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">عدد الأسئلة المراد توليدها</label>
+                  <select
+                    value={aiCount}
+                    onChange={(e) => setAiCount(Number(e.target.value))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold"
+                  >
+                    <option value={2}>سؤالان سريريان (2 Questions)</option>
+                    <option value={3}>3 أسئلة سريرية (3 Questions - قياسي)</option>
+                    <option value={4}>4 أسئلة سريرية (4 Questions)</option>
+                    <option value={5}>5 أسئلة سريرية (5 Questions)</option>
+                    <option value={6}>6 أسئلة سريرية متقدمة (6 Questions)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">مستوى العمق السريري</label>
+                  <select
+                    value={aiDifficulty}
+                    onChange={(e) => setAiDifficulty(e.target.value as any)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold"
+                  >
+                    <option value="basic">تأسيسي (استرجاع معلومات وفسيولوجيا مرضية - 15 نقطة)</option>
+                    <option value="clinical">سريري قياسي (تقييم وتشخيص فارقي - 20 نقطة)</option>
+                    <option value="advanced">متقدم (اتخاذ قرارات علاجية وطوارئ حرجة - 25 نقطة)</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">السنة الأكاديمية المستهدفة</label>
-                <input
-                  type="text"
-                  value={newCourse.year}
-                  onChange={(e) => setNewCourse({ ...newCourse, year: e.target.value })}
-                  placeholder="مثال: السنوات السريرية (4-5)"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">أيقونة ورمز المقرر</label>
-                <input
-                  type="text"
-                  value={newCourse.icon}
-                  onChange={(e) => setNewCourse({ ...newCourse, icon: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs text-center font-bold"
-                />
-              </div>
-
-              <div className="sm:col-span-2 lg:col-span-3 space-y-1">
-                <label className="text-xs font-bold text-slate-300">الوصف الأكاديمي والسريري</label>
-                <input
-                  type="text"
-                  value={newCourse.description}
-                  onChange={(e) => setNewCourse({ ...newCourse, description: e.target.value })}
-                  placeholder="وصف تفصيلي لما سيتعلمه الطالب من محاكاة وحالات..."
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-semibold"
-                />
-              </div>
-
-              <div className="flex items-end">
+              <div className="flex items-center gap-4 pt-2">
                 <button
                   type="submit"
-                  disabled={actionLoading}
-                  className="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs shadow-md transition disabled:opacity-50"
+                  disabled={isGeneratingAi}
+                  className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-black rounded-2xl transition text-sm shadow-lg disabled:opacity-50 flex items-center gap-2"
                 >
-                  إضافة المقرر فوراً ➕
+                  {isGeneratingAi ? (
+                    <>
+                      <span className="animate-spin text-lg">⏳</span>
+                      <span>جاري توليد الأسئلة والحالات بالذكاء الاصطناعي...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>⚡</span>
+                      <span>توليد الاختبار الطبي بالذكاء الاصطناعي</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
           </div>
 
-          {/* List of Courses */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredCourses.map((c) => (
-              <div
-                key={c.id}
-                className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between space-y-4"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-3xl p-2 rounded-xl bg-slate-950 border border-slate-800">
-                      {c.icon || '🩺'}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-cyan-950 text-cyan-300 text-[10px] font-bold border border-cyan-800/40">
-                      {c.year}
-                    </span>
+          {/* Generated Quiz Live Preview */}
+          {aiGeneratedQuiz && (
+            <div className="bg-white rounded-3xl p-8 border-2 border-emerald-300 shadow-lg space-y-6">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-slate-100">
+                <div>
+                  <span className="bg-emerald-100 text-emerald-800 text-xs font-black px-3 py-1 rounded-full">
+                    تم التوليد بنجاح ✓
+                  </span>
+                  <h3 className="text-2xl font-black text-slate-900 mt-2">{aiGeneratedQuiz.title}</h3>
+                  <p className="text-xs text-slate-500 mt-1">{aiGeneratedQuiz.description}</p>
+                  <div className="flex items-center gap-4 mt-3 text-xs text-slate-600 font-bold">
+                    <span>📚 المهارة: {aiGeneratedQuiz.skillName}</span>
+                    <span>⏱️ الوقت: {aiGeneratedQuiz.timeLimitMinutes} دقائق</span>
+                    <span>📝 عدد الأسئلة: {aiGeneratedQuiz.questions.length}</span>
                   </div>
-
-                  <h4 className="font-black text-white text-sm">{c.title}</h4>
-                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                    {c.description}
-                  </p>
                 </div>
 
-                <div className="space-y-3 pt-3 border-t border-slate-800 text-xs">
-                  <div className="flex items-center justify-between text-slate-400">
-                    <span>{c.modules?.length || 3} وحدات تعليمية</span>
-                    <span>⏳ {c.estimatedHours} ساعة تدريب</span>
-                  </div>
-
-                  {/* Lectures & Exams Stats Badges */}
-                  <div className="flex items-center gap-2 flex-wrap text-[11px] pt-1 font-semibold">
-                    <span className="px-2 py-0.5 rounded-md bg-indigo-950/90 text-indigo-300 border border-indigo-500/30">
-                      📑 {(db.lectures || []).filter((l) => l.courseId === c.id).length} محاضرات
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-amber-950/90 text-amber-300 border border-amber-500/30">
-                      📝 {(db.exams || []).filter((e) => e.courseId === c.id).length} اختبارات
-                    </span>
-                  </div>
-
-                  {/* Button to open lecture/exam manager */}
+                {/* Instant Actions */}
+                <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                  {/* Download HTML Button */}
                   <button
-                    onClick={() => setSelectedCourseForContent(c)}
-                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500/20 via-indigo-500/20 to-teal-500/20 hover:from-cyan-500/30 hover:to-indigo-500/30 text-cyan-300 hover:text-white border border-cyan-500/40 text-xs font-black transition flex items-center justify-center gap-2 shadow-sm"
+                    type="button"
+                    onClick={handleDownloadAiHtml}
+                    className="flex-1 md:flex-none px-5 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black rounded-xl text-xs transition shadow-md flex items-center justify-center gap-2"
                   >
-                    <span>📑</span>
-                    <span>إضافة وإدارة المحاضرات والامتحانات</span>
-                    <span>⚡</span>
+                    <span>📥</span>
+                    <span>تنزيل الاختبار كـ HTML مستقل (Offline)</span>
                   </button>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <Link
-                      href={`/courses/${c.id}`}
-                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
-                    >
-                      معاينة الطالب ←
-                    </Link>
-
-                    <button
-                      onClick={() => handleDeleteCourse(c.id)}
-                      className="px-3 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 text-xs font-bold transition border border-rose-500/30"
-                    >
-                      حذف المقرر 🗑️
-                    </button>
-                  </div>
+                  {/* Save to LMS Button */}
+                  <button
+                    type="button"
+                    onClick={handleSaveAiQuizToDb}
+                    disabled={isSavingAi}
+                    className="flex-1 md:flex-none px-5 py-3 bg-slate-900 hover:bg-black text-white font-black rounded-xl text-xs transition shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <span>💾</span>
+                    <span>{isSavingAi ? 'جاري الحفظ...' : 'حفظ ونشر في المنصة للطلاب'}</span>
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* ========================================================================= */}
-      {/* TAB 3: لوحة المتصدرين وقائمة الشرف (Leaderboard)                           */}
-      {/* ========================================================================= */}
-      {activeTab === 'leaderboard' && (
-        <div className="space-y-6">
-          <div className="p-6 rounded-3xl bg-[#0c142b] border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-black text-white text-lg flex items-center gap-2">
-                <span>🏆</span>
-                <span>لوحة المتصدرين الوطنية لطلاب الطب والأطباء (Medical Leaderboard)</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                ترتيب الطلاب حسب نقاط الخبرة السريرية (XP) وأيام النشاط المتواصل والدرجات المعرفية.
-              </p>
-            </div>
+              {/* Questions Preview */}
+              <div className="space-y-4">
+                <h4 className="text-base font-black text-slate-800">
+                  معاينة الحالات والأسئلة المولدة ({aiGeneratedQuiz.questions.length}):
+                </h4>
 
-            <div className="text-xs text-cyan-400 font-bold bg-cyan-950/60 px-3.5 py-1.5 rounded-xl border border-cyan-500/30">
-              إجمالي الطلاب المتنافسين: {db.users.length}
-            </div>
-          </div>
+                {aiGeneratedQuiz.questions.map((q: any, idx: number) => (
+                  <div key={q.id || idx} className="p-6 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                    <div className="flex justify-between items-center text-xs font-bold">
+                      <span className="text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
+                        حالة سريرية {idx + 1}
+                      </span>
+                      <span className="text-slate-500 font-mono">{q.points || 20} نقطة</span>
+                    </div>
 
-          {/* Leaderboard Table */}
-          <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-[#0c142b] shadow-2xl">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-900/80 text-slate-400 text-[11px] font-bold border-b border-slate-800">
-                <tr>
-                  <th className="py-4 px-4 text-center">الترتيب</th>
-                  <th className="py-4 px-4">الطالب / الطبيب</th>
-                  <th className="py-4 px-4">الكلية والجامعة</th>
-                  <th className="py-4 px-4">المرحلة الدراسية</th>
-                  <th className="py-4 px-4 text-center">أيام النشاط</th>
-                  <th className="py-4 px-4 text-center">نقاط XP</th>
-                  <th className="py-4 px-4 text-center">معدل الرادار</th>
-                  <th className="py-4 px-4 text-center">إجراء المطور</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 font-semibold">
-                {db.users
-                  .sort((a, b) => (b.points || 0) - (a.points || 0))
-                  .map((u, idx) => {
-                    const avgScore = u.cognitiveScores
-                      ? Math.round(
-                          ((u.cognitiveScores.clinicalReasoning || 80) +
-                            (u.cognitiveScores.pharmacology || 80) +
-                            (u.cognitiveScores.pathophysiology || u.cognitiveScores.foundational || 80) +
-                            (u.cognitiveScores.diagnosticsLab || 80) +
-                            (u.cognitiveScores.emergencySpeed || 80) +
-                            (u.cognitiveScores.evidenceEthics || 80)) /
-                            6
-                        )
-                      : 80;
+                    <p className="font-bold text-slate-900 text-sm leading-relaxed">{q.text}</p>
 
-                    return (
-                      <tr key={u.id} className="hover:bg-slate-900/40 transition">
-                        <td className="py-3.5 px-4 text-center">
-                          <span
-                            className={`inline-flex items-center justify-center w-7 h-7 rounded-xl font-black text-xs ${
-                              idx === 0
-                                ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/30'
-                                : idx === 1
-                                ? 'bg-slate-300 text-slate-950'
-                                : idx === 2
-                                ? 'bg-amber-700 text-white'
-                                : 'text-slate-400'
+                    <div className="space-y-1.5 pt-1">
+                      {q.options.map((opt: string, optIdx: number) => {
+                        const isCorrect = optIdx === q.correctIndex;
+                        return (
+                          <div
+                            key={optIdx}
+                            className={`p-3 rounded-xl text-xs flex items-center justify-between border ${
+                              isCorrect
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
+                                : 'bg-white border-slate-200 text-slate-700'
                             }`}
                           >
-                            {idx + 1}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2.5">
-                            <img
-                              src={u.avatar}
-                              alt={u.name}
-                              className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-700 p-0.5"
-                            />
-                            <div>
-                              <span className="font-bold text-white block text-xs">{u.name}</span>
-                              <span className="text-[10px] text-cyan-400 font-mono">
-                                {u.studentId || u.email}
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                  isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                                }`}
+                              >
+                                {optIdx + 1}
                               </span>
+                              <span>{opt}</span>
                             </div>
+                            {isCorrect && (
+                              <span className="text-emerald-700 font-bold text-[11px]">الإجابة الصحيحة ✓</span>
+                            )}
                           </div>
-                        </td>
+                        );
+                      })}
+                    </div>
 
-                        <td className="py-3.5 px-4 text-slate-300">{u.university || 'كلية الطب'}</td>
-
-                        <td className="py-3.5 px-4">
-                          <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-700 text-[10px] text-slate-300 font-bold">
-                            {u.academicYear}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="text-amber-400 font-bold">🔥 {u.streak}</span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="text-emerald-400 font-black font-mono">
-                            {(u.points || 0).toLocaleString()} XP
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500/30 font-bold font-mono">
-                            {avgScore}%
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          <button
-                            onClick={() => setSelectedStudentForBonus(u)}
-                            className="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] transition shadow-sm"
-                          >
-                            منح مكافأة 🎁
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Bonus Modal */}
-          {selectedStudentForBonus && (
-            <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="max-w-md w-full p-6 rounded-3xl bg-[#0c142b] border border-cyan-500/40 shadow-2xl space-y-5 animate-in fade-in">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <h4 className="font-black text-white text-sm flex items-center gap-2">
-                    <span>🎁</span>
-                    <span>منح مكافأة تقديرية لـ {selectedStudentForBonus.name}</span>
-                  </h4>
-                  <button
-                    onClick={() => setSelectedStudentForBonus(null)}
-                    className="text-slate-400 hover:text-white text-xs font-bold"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div className="space-y-3 text-xs">
-                  <div className="space-y-1">
-                    <label className="text-slate-300 font-bold">عدد نقاط المكافأة (XP)</label>
-                    <input
-                      type="number"
-                      value={bonusPoints}
-                      onChange={(e) => setBonusPoints(Number(e.target.value))}
-                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold"
-                    />
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-700 leading-relaxed">
+                      <strong className="text-slate-900 block mb-0.5">💡 التفسير والمنطق السريري:</strong>
+                      {q.explanation}
+                    </div>
                   </div>
-
-                  <div className="space-y-1">
-                    <label className="text-slate-300 font-bold">منح وسام سريري فخري</label>
-                    <select
-                      value={bonusBadge}
-                      onChange={(e) => setBonusBadge(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold"
-                    >
-                      <option value="master_diagnostician">وسام عبقري التشخيص السريري (Master Diagnostician)</option>
-                      <option value="emergency_hero">وسام بطل الطوارئ والإنعاش (Emergency Hero)</option>
-                      <option value="ecg_guru">وسام خبير تخطيط القلب (ECG Guru)</option>
-                      <option value="curriculum_lead">وسام النخبة الأكاديمية (Curriculum Lead)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    onClick={() => setSelectedStudentForBonus(null)}
-                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-bold"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    onClick={handleAwardBonus}
-                    disabled={actionLoading}
-                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-black text-xs shadow-md"
-                  >
-                    تأكيد المنح فوراً 🌟
-                  </button>
-                </div>
+                ))}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Course Content Manager Modal */}
-      {selectedCourseForContent && (
-        <CourseContentManager
-          course={selectedCourseForContent}
-          db={db}
-          onUpdate={handleCourseContentUpdate}
-          onClose={() => setSelectedCourseForContent(null)}
-        />
+      {/* ========================================================================= */}
+      {/* TAB 4: COURSES MANAGEMENT */}
+      {/* ========================================================================= */}
+      {activeTab === 'courses' && (
+        <div className="space-y-8">
+          {/* Add Course Card */}
+          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+            <div className="mb-6">
+              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <span>📚</span>
+                <span>إضافة مقرر دراسي جديد لكلية الطب</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">حدد اسم المقرر والمستوى الأكاديمي والتخصص السريري</p>
+            </div>
+
+            <form onSubmit={handleCourseSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">اسم المقرر</label>
+                  <input
+                    type="text"
+                    name="title"
+                    required
+                    placeholder="مثال: علم الأدوية السريري (Clinical Pharmacology)"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">المستوى الدراسي</label>
+                  <select
+                    name="level"
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="YEAR_1">السنة الأولى (Year 1)</option>
+                    <option value="YEAR_2">السنة الثانية (Year 2)</option>
+                    <option value="YEAR_3">السنة الثالثة (Year 3)</option>
+                    <option value="YEAR_4">السنة الرابعة - سريري (Year 4)</option>
+                    <option value="YEAR_5">السنة الخامسة - سريري (Year 5)</option>
+                    <option value="INTERNSHIP">سنة الامتياز (Internship)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">التصنيف الطبي</label>
+                  <select
+                    name="category"
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="INTERNAL_MEDICINE">الباطنة العامة (Internal Medicine)</option>
+                    <option value="SURGERY">الجراحة العامة (General Surgery)</option>
+                    <option value="PEDIATRICS">طب الأطفال (Pediatrics)</option>
+                    <option value="OBGYN">النساء والتوليد (Obstetrics & Gynecology)</option>
+                    <option value="EMERGENCY">طب الطوارئ والعناية الحرجة (Emergency)</option>
+                    <option value="BASIC_SCIENCES">العلوم الطبية الأساسية (Basic Sciences)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">أيقونة المقرر (Emoji)</label>
+                  <input
+                    type="text"
+                    name="icon"
+                    defaultValue="🩺"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm text-center font-bold"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">الساعات المعتمدة المقدرة</label>
+                  <input
+                    type="number"
+                    name="estimatedHours"
+                    defaultValue={18}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">وصف المقرر ومحاوره</label>
+                <textarea
+                  name="description"
+                  rows={3}
+                  placeholder="نبذة عن المقرر والمفاهيم الطبية والسريرية الرئيسية..."
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isPending}
+                className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition text-sm shadow-md disabled:opacity-50 flex items-center gap-2"
+              >
+                {isPending ? 'جاري الإضافة...' : 'إضافة المقرر الدراسي 📚'}
+              </button>
+            </form>
+          </div>
+
+          {/* Courses Directory with Lecture & Exam management shortcuts */}
+          <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+            <h3 className="text-xl font-black text-slate-900 mb-6">
+              دليل المقررات الدراسية الحالية ({db.courses.length})
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {db.courses.map((c: any) => {
+                const courseLectures = allLectures.filter((l) => l.courseId === c.id);
+                const courseExams = allExams.filter((e) => e.courseId === c.id);
+
+                return (
+                  <div key={c.id} className="p-6 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col justify-between gap-4">
+                    <div>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-2xl">{c.icon || '🩺'}</span>
+                        <span className="text-xs font-bold bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-full">
+                          {c.level || c.year || 'عام'}
+                        </span>
+                      </div>
+                      <h4 className="font-black text-slate-900 text-base mb-1">{c.title}</h4>
+                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{c.description}</p>
+                      
+                      <div className="flex items-center gap-3 mt-4 text-xs font-bold text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200">
+                        <span>📑 {courseLectures.length} محاضرات</span>
+                        <span>•</span>
+                        <span>📝 {courseExams.length} امتحانات</span>
+                        <span>•</span>
+                        <span>⭐ {c.rating || 5.0}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200/80 flex flex-wrap items-center gap-2 justify-between">
+                      <div className="flex items-center gap-2">
+                        {/* Add Lecture Shortcut */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMaterialCourseId(c.id);
+                            setActiveTab('materials');
+                            window.scrollTo({ top: 300, behavior: 'smooth' });
+                          }}
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl transition border border-blue-200"
+                        >
+                          + محاضرة
+                        </button>
+
+                        {/* Add Exam Shortcut */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExamCourseId(c.id);
+                            setActiveTab('quizzes');
+                            window.scrollTo({ top: 300, behavior: 'smooth' });
+                          }}
+                          className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-xl transition border border-amber-200"
+                        >
+                          + امتحان
+                        </button>
+
+                        {/* View Course */}
+                        <Link
+                          href={`/courses/${c.id}`}
+                          className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl transition"
+                        >
+                          عرض المقرر ↗
+                        </Link>
+                      </div>
+
+                      {/* Delete Course */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCourse(c.id)}
+                        className="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 text-xs font-bold rounded-xl transition"
+                        title="حذف المقرر"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Bonus Modal */}
+      {/* ========================================================================= */}
+      {/* TAB 5: DATABASE & LIVE JSON INSPECTOR */}
+      {/* ========================================================================= */}
+      {activeTab === 'database' && (
+        <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <span>🔍</span>
+                <span>قاعدة البيانات الحية (Live JSON Inspector)</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">يمكنك فحص البيانات الحية وتصديرها ونسخها بالكامل</p>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(db, null, 2));
+                showNotification('تم نسخ قاعدة البيانات بالكامل إلى الحافظة! 📋', 'success');
+              }}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-1.5"
+            >
+              <span>📋</span>
+              <span>نسخ قاعدة البيانات</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <span className="block text-2xl font-black text-blue-600">{db.courses?.length || 0}</span>
+              <span className="text-xs text-slate-500 font-bold">المقررات</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <span className="block text-2xl font-black text-indigo-600">{allLectures.length}</span>
+              <span className="text-xs text-slate-500 font-bold">المحاضرات</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <span className="block text-2xl font-black text-emerald-600">{allExams.length}</span>
+              <span className="text-xs text-slate-500 font-bold">الامتحانات</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <span className="block text-2xl font-black text-amber-600">{db.users?.length || 0}</span>
+              <span className="text-xs text-slate-500 font-bold">المستخدمين</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-emerald-400 font-mono text-xs overflow-x-auto max-h-[500px]" dir="ltr">
+            <pre>{JSON.stringify(db, null, 2)}</pre>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 6: SUMMARIES & CLINICAL REPORTS (ENHANCEMENT) */}
+      {/* ========================================================================= */}
+      {activeTab === 'summaries' && (
+        <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+          <div className="mb-6 pb-4 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                <span>📋</span>
+                <span>مركز التقارير والملخصات الطبية السريرية</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                متابعة التحليلات الشاملة لجميع المقررات والامتحانات وحالات التدريب السريري
+              </p>
+            </div>
+          </div>
+
+          <SummaryClient db={db} currentUser={db.users?.[0]} />
+        </div>
+      )}
     </div>
   );
 }

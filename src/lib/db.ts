@@ -210,6 +210,7 @@ export interface Database {
   badges: { id: string; name: string; icon: string; description: string }[];
   lectures: CourseLecture[];
   exams: CourseExam[];
+  materials?: any[];
 }
 
 // Check for Neon Database URL
@@ -249,14 +250,14 @@ export async function getDb(): Promise<Database> {
     try {
       // Query Neon PostgreSQL tables
       const usersRows = await sql`SELECT * FROM users ORDER BY points DESC`;
-      const coursesRows = await sql`SELECT * FROM courses ORDER BY created_at ASC`;
-      const casesRows = await sql`SELECT * FROM clinical_cases ORDER BY created_at ASC`;
-      const quizzesRows = await sql`SELECT * FROM quizzes ORDER BY created_at ASC`;
-      const arenaRows = await sql`SELECT * FROM arena_battles ORDER BY created_at ASC`;
-      const flashcardsRows = await sql`SELECT * FROM flashcards ORDER BY created_at ASC`;
+      const coursesRows = await sql`SELECT * FROM courses`;
+      const casesRows = await sql`SELECT * FROM clinical_cases`;
+      const quizzesRows = await sql`SELECT * FROM quizzes`;
+      const arenaRows = await sql`SELECT * FROM arena_battles`;
+      const flashcardsRows = await sql`SELECT * FROM flashcards`;
       const badgesRows = await sql`SELECT * FROM badges`;
-      const lecturesRows = await sql`SELECT * FROM course_lectures ORDER BY created_at ASC`;
-      const examsRows = await sql`SELECT * FROM course_exams ORDER BY created_at ASC`;
+      const lecturesRows = await sql`SELECT * FROM course_lectures`;
+      const examsRows = await sql`SELECT * FROM course_exams`;
 
       return {
         users: usersRows.map((r: any) => ({
@@ -349,7 +350,7 @@ export async function getDb(): Promise<Database> {
           duration: r.duration,
           order: Number(r.order_index) || 0,
           isPublished: Boolean(r.is_published) || true,
-          createdAt: r.created_at,
+          createdAt: r.created_at || new Date().toISOString(),
           updatedAt: r.updated_at,
         })),
         exams: examsRows.map((r: any) => ({
@@ -367,7 +368,7 @@ export async function getDb(): Promise<Database> {
           passingScore: Number(r.passing_score) || 60,
           isPublished: Boolean(r.is_published) || true,
           order: Number(r.order_index) || 0,
-          createdAt: r.created_at,
+          createdAt: r.created_at || new Date().toISOString(),
           updatedAt: r.updated_at,
         })),
       };
