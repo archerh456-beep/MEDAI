@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { getDb } from '@/lib/db';
+import { getDb, getCurrentUser } from '@/lib/db';
 
 export default async function HomePage() {
   const cookieStore = await cookies();
   const userId = cookieStore.get('userId')?.value;
+  const currentUser = userId ? await getCurrentUser(userId) : null;
   const db = await getDb();
-  const currentUser = userId ? db.users.find((u) => u.id === userId) : null;
 
   const totalStudents = db.users.length;
 

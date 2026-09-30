@@ -24,7 +24,12 @@ export default function LoginPage() {
         body: JSON.stringify({ identifier, password }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.user) {
+        if (typeof window !== 'undefined' && data.user.id) {
+          document.cookie = `userId=${encodeURIComponent(data.user.id)}; path=/; max-age=2592000; SameSite=Lax`;
+          localStorage.setItem('medai_user_id', data.user.id);
+          localStorage.setItem('medai_user', JSON.stringify(data.user));
+        }
         if (data.user?.role === 'DEVELOPER') {
           router.push('/developer');
         } else {

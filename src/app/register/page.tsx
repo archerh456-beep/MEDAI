@@ -30,8 +30,15 @@ export default function RegisterPage() {
         body: JSON.stringify(formData),
       });
       const data = await res.json();
-      if (data.success) {
-        router.push('/profile');
+      if (data.success && data.user) {
+        // Guarantee immediate cookie availability on the client for smooth navigation
+        if (typeof window !== 'undefined' && data.user.id) {
+          document.cookie = `userId=${encodeURIComponent(data.user.id)}; path=/; max-age=2592000; SameSite=Lax`;
+          localStorage.setItem('medai_user_id', data.user.id);
+          localStorage.setItem('medai_user', JSON.stringify(data.user));
+        }
+        const target = data.user.role === 'DEVELOPER' ? '/developer' : '/profile';
+        router.push(target);
         router.refresh();
       } else {
         setErrorMsg(data.error || 'حدث خطأ في التسجيل');

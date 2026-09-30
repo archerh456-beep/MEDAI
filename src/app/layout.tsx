@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { getDb } from '@/lib/db';
+import { getDb, getCurrentUser } from '@/lib/db';
 import MobileNav from '@/app/components/MobileNav';
 import './globals.css';
 
@@ -17,8 +17,8 @@ export default async function RootLayout({
 }) {
   const cookieStore = await cookies();
   const userId = cookieStore.get('userId')?.value;
+  const currentUser = userId ? await getCurrentUser(userId) : null;
   const db = await getDb();
-  const currentUser = userId ? db.users.find((u) => u.id === userId) : null;
 
   return (
     <html lang="ar" dir="rtl" className="h-full bg-slate-900 text-slate-100">

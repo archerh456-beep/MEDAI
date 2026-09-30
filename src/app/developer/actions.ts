@@ -1,19 +1,11 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { getDb, saveDb, Course, CourseLecture, CourseExam } from '@/lib/db';
+import { getDb, saveDb, Course, CourseLecture, CourseExam, getCurrentUser } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import fs from 'fs/promises';
 import path from 'path';
 import { generateAiMedicalQuiz, buildStandaloneHtmlQuiz, GeneratedQuiz } from '@/lib/ai-quiz-generator';
-
-async function getCurrentUser() {
-  const cookieStore = await cookies();
-  const userId = cookieStore.get('userId')?.value;
-  if (!userId) return null;
-  const db = await getDb();
-  return db.users.find((u: any) => u.id === userId);
-}
 
 async function verifyDeveloper() {
   const cookieStore = await cookies();

@@ -331,6 +331,102 @@ export function getLocalUsers(): User[] {
   return [];
 }
 
+export async function getUserById(id: string): Promise<User | null> {
+  if (!id || typeof id !== 'string') return null;
+  const cleanId = id.trim();
+  const sql = getNeonClient();
+
+  if (sql) {
+    try {
+      const rows = await sql`
+        SELECT * FROM users
+        WHERE id = ${cleanId}
+        LIMIT 1
+      `;
+      if (rows && rows.length > 0) {
+        return mapUserRow(rows[0]);
+      }
+    } catch (neonErr) {
+      console.warn('Neon query error in getUserById:', neonErr);
+    }
+  }
+
+  // Fallback to local dataset and memory cache
+  const localUsers = getLocalUsers();
+  const found = localUsers.find((u) => u.id === cleanId);
+  if (found) return found;
+
+  return null;
+}
+
+export function syncUserToLocalFallback(user: User): void {
+  // Update memoryDb
+  if (memoryDb) {
+    if (!Array.isArray(memoryDb.users)) {
+      memoryDb.users = [];
+    }
+    const idx = memoryDb.users.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+    if (idx >= 0) {
+      memoryDb.users[idx] = { ...memoryDb.users[idx], ...user };
+    } else {
+      memoryDb.users.push(user);
+    }
+  }
+
+  // Update /tmp store
+  const tmpStore = '/tmp/medai_db.json';
+  try {
+    let currentData: any = null;
+    if (fs.existsSync(tmpStore)) {
+      try {
+        currentData = JSON.parse(fs.readFileSync(tmpStore, 'utf-8'));
+      } catch {
+        // ignore
+      }
+    }
+    if (!currentData || !Array.isArray(currentData.users)) {
+      currentData = memoryDb || JSON.parse(JSON.stringify(fallbackDataset));
+    }
+    const uIdx = currentData.users.findIndex((u: any) => u.id === user.id || (u.email && u.email.toLowerCase() === user.email.toLowerCase()));
+    if (uIdx >= 0) {
+      currentData.users[uIdx] = { ...currentData.users[uIdx], ...user };
+    } else {
+      currentData.users.push(user);
+    }
+    fs.writeFileSync(tmpStore, JSON.stringify(currentData, null, 2), 'utf-8');
+  } catch (err) {
+    // ignore
+  }
+
+  // Update LOCAL_STORE if in writable local environment
+  try {
+    const dir = path.dirname(LOCAL_STORE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    let localData: any = null;
+    if (fs.existsSync(LOCAL_STORE)) {
+      try {
+        localData = JSON.parse(fs.readFileSync(LOCAL_STORE, 'utf-8'));
+      } catch {
+        // ignore
+      }
+    }
+    if (!localData || !Array.isArray(localData.users)) {
+      localData = memoryDb || JSON.parse(JSON.stringify(fallbackDataset));
+    }
+    const locIdx = localData.users.findIndex((u: any) => u.id === user.id || (u.email && u.email.toLowerCase() === user.email.toLowerCase()));
+    if (locIdx >= 0) {
+      localData.users[locIdx] = { ...localData.users[locIdx], ...user };
+    } else {
+      localData.users.push(user);
+    }
+    fs.writeFileSync(LOCAL_STORE, JSON.stringify(localData, null, 2), 'utf-8');
+  } catch {
+    // Read-only filesystem in cloud is safe to ignore
+  }
+}
+
 export async function getUserByEmailOrStudentId(identifier: string): Promise<User | null> {
   const query = identifier.trim().toLowerCase();
   const sql = getNeonClient();
@@ -529,21 +625,25 @@ export async function saveDb(data: Database): Promise<boolean> {
   memoryDb = data;
   const sql = getNeonClient();
 
-  // If Neon is connected, sync user changes and course records
+  // If Neon is connected, sync user changes safely without failing the whole batch
   if (sql) {
     try {
-      // Upsert users
+      // Upsert users individually with error handling for duplicates
       for (const u of data.users) {
-        await sql`
-          INSERT INTO users (id, name, student_id, academic_year, university, email, role, level, points, rank, streak, avatar, google_id, cognitive_scores, badges)
-          VALUES (${u.id}, ${u.name}, ${u.studentId}, ${u.academicYear}, ${u.university}, ${u.email}, ${u.role}, ${u.level}, ${u.points}, ${u.rank}, ${u.streak}, ${u.avatar}, ${u.googleId || null}, ${JSON.stringify(u.cognitiveScores)}, ${JSON.stringify(u.badges)})
-          ON CONFLICT (id) DO UPDATE SET
-            points = EXCLUDED.points,
-            rank = EXCLUDED.rank,
-            streak = EXCLUDED.streak,
-            cognitive_scores = EXCLUDED.cognitive_scores,
-            badges = EXCLUDED.badges;
-        `;
+        try {
+          await sql`
+            INSERT INTO users (id, name, student_id, academic_year, university, email, role, level, points, rank, streak, avatar, google_id, cognitive_scores, badges)
+            VALUES (${u.id}, ${u.name}, ${u.studentId}, ${u.academicYear}, ${u.university}, ${u.email}, ${u.role}, ${u.level}, ${u.points}, ${u.rank}, ${u.streak}, ${u.avatar}, ${u.googleId || null}, ${JSON.stringify(u.cognitiveScores)}, ${JSON.stringify(u.badges)})
+            ON CONFLICT (id) DO UPDATE SET
+              points = EXCLUDED.points,
+              rank = EXCLUDED.rank,
+              streak = EXCLUDED.streak,
+              cognitive_scores = EXCLUDED.cognitive_scores,
+              badges = EXCLUDED.badges;
+          `;
+        } catch {
+          // ignore individual conflict
+        }
       }
     } catch (neonErr) {
       console.warn('Neon save error, updating local fallback:', neonErr);
@@ -574,22 +674,34 @@ export async function saveDb(data: Database): Promise<boolean> {
 export const DEVELOPER_SECRET_KEY = process.env.DEVELOPER_SECRET_KEY || 'MEDAI_DEV_2026';
 
 export async function getCurrentUser(userId?: string): Promise<User | null> {
-  const db = await getDb();
+  // 1. Direct fetch by ID if explicitly provided
   if (userId) {
-    const found = db.users.find((u) => u.id === userId);
-    if (found) return found;
+    const user = await getUserById(userId);
+    if (user) return user;
   }
-  // Try checking cookies if available in server context
+
+  // 2. Direct fetch by ID from cookies if in server request context
   try {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
     const cookieUserId = cookieStore.get('userId')?.value;
     if (cookieUserId) {
-      const found = db.users.find((u) => u.id === cookieUserId);
-      if (found) return found;
+      const user = await getUserById(cookieUserId);
+      if (user) return user;
     }
   } catch {
     // Outside request context
+  }
+
+  // 3. Fallback: check in-memory / getDb users
+  try {
+    const db = await getDb();
+    if (userId) {
+      const found = db.users.find((u) => u.id === userId);
+      if (found) return found;
+    }
+  } catch {
+    // ignore
   }
 
   return null;
@@ -691,49 +803,49 @@ export async function registerUser({
   googleId?: string;
   avatar?: string;
 }): Promise<{ user?: User; error?: string }> {
-  const db = await getDb();
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanStudentId = studentId.trim();
 
-  // Check if email already registered
-  const existingEmail = db.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  // Check if email or studentId already registered (Neon + local)
+  const existingEmail = await getUserByEmailOrStudentId(cleanEmail);
   if (existingEmail) {
     return { error: 'البريد الإلكتروني مسجل مسبقاً في النظام' };
   }
 
-  // Check if studentId already exists
-  const existingId = db.users.find((u) => u.studentId?.toLowerCase() === studentId.toLowerCase());
+  const existingId = await getUserByEmailOrStudentId(cleanStudentId);
   if (existingId) {
     return { error: 'الرقم الجامعي مسجل مسبقاً لطالب آخر' };
   }
 
-  const isDevAccount = email.toLowerCase() === 'archerh456@gmail.com';
+  const isDevAccount = cleanEmail === 'archerh456@gmail.com';
 
   const newUser: User = {
-    id: isDevAccount ? 'dev_archerh456' : `user_${Date.now()}`,
-    name,
-    email: email.toLowerCase(),
-    studentId,
-    academicYear,
-    university,
+    id: isDevAccount ? 'dev_archerh456' : `user_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    name: name.trim(),
+    email: cleanEmail,
+    studentId: cleanStudentId,
+    academicYear: academicYear.trim(),
+    university: university.trim() || 'كلية الطب',
     password: password || '123456',
     role: isDevAccount ? 'DEVELOPER' : 'STUDENT',
     level: isDevAccount ? 'CONSULTANT' : academicYear.includes('امتياز') ? 'INTERN' : 'STUDENT',
-    points: 0, // Welcome bonus
-    rank: db.users.length + 1,
+    points: 100, // Welcome bonus
+    rank: 1,
     streak: 1,
     avatar:
       avatar ||
-      `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(email.toLowerCase())}`,
+      `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(cleanEmail)}`,
     googleId,
     cognitiveScores: {
-      foundational: 0,
-      clinicalReasoning: 0,
-      pharmacology: 0,
-      pathophysiology: 0,
-      diagnosticsLab: 0,
-      emergencySpeed: 0,
-      evidenceEthics: 0,
+      foundational: 70,
+      clinicalReasoning: 70,
+      pharmacology: 70,
+      pathophysiology: 70,
+      diagnosticsLab: 70,
+      emergencySpeed: 70,
+      evidenceEthics: 70,
     },
-    badges: [],
+    badges: ['welcome_cadet'],
   };
 
   const sql = getNeonClient();
@@ -742,14 +854,28 @@ export async function registerUser({
       await sql`
         INSERT INTO users (id, name, student_id, academic_year, university, email, password, role, level, points, rank, streak, avatar, google_id, cognitive_scores, badges)
         VALUES (${newUser.id}, ${newUser.name}, ${newUser.studentId}, ${newUser.academicYear}, ${newUser.university}, ${newUser.email}, ${newUser.password}, ${newUser.role}, ${newUser.level}, ${newUser.points}, ${newUser.rank}, ${newUser.streak}, ${newUser.avatar}, ${newUser.googleId || null}, ${JSON.stringify(newUser.cognitiveScores)}, ${JSON.stringify(newUser.badges)})
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          student_id = EXCLUDED.student_id,
+          academic_year = EXCLUDED.academic_year,
+          university = EXCLUDED.university,
+          email = EXCLUDED.email,
+          password = EXCLUDED.password;
       `;
-    } catch (err) {
-      console.warn('Neon insert error:', err);
+    } catch (err: any) {
+      console.warn('Neon insert error in registerUser:', err);
+      if (err?.message?.includes('users_email_key')) {
+        return { error: 'البريد الإلكتروني مسجل مسبقاً في قاعدة البيانات' };
+      }
+      if (err?.message?.includes('users_student_id_key')) {
+        return { error: 'الرقم الجامعي مسجل مسبقاً لطالب آخر' };
+      }
     }
   }
 
-  db.users.push(newUser);
-  await saveDb(db);
+  // Update memoryDb and local store
+  syncUserToLocalFallback(newUser);
+
   return { user: newUser };
 }
 
@@ -771,50 +897,105 @@ export async function authenticateWithGoogle({
   studentId?: string;
   academicYear?: string;
 }): Promise<{ user: User; isNewUser: boolean }> {
-  const db = await getDb();
-  const existingUser = db.users.find(
-    (u) => u.email.toLowerCase() === email.toLowerCase() || (u.googleId && u.googleId === googleId)
-  );
+  const emailClean = email.trim().toLowerCase();
+  const sql = getNeonClient();
+
+  // 1. Direct query in Neon if connected
+  let existingUser: User | null = null;
+  if (sql) {
+    try {
+      const rows = await sql`
+        SELECT * FROM users
+        WHERE LOWER(email) = ${emailClean} OR google_id = ${googleId}
+        LIMIT 1
+      `;
+      if (rows && rows.length > 0) {
+        existingUser = mapUserRow(rows[0]);
+      }
+    } catch (neonErr) {
+      console.warn('Neon query error in authenticateWithGoogle:', neonErr);
+    }
+  }
+
+  // 2. Fallback to local users dataset
+  if (!existingUser) {
+    const localUsers = getLocalUsers();
+    existingUser =
+      localUsers.find(
+        (u) =>
+          (u.email && u.email.toLowerCase() === emailClean) ||
+          (u.googleId && u.googleId === googleId)
+      ) || null;
+  }
 
   if (existingUser) {
-    // Update googleId and avatar if not present
+    // Update existing user with googleId, avatar if needed
     existingUser.googleId = googleId;
-    if (avatar) existingUser.avatar = avatar;
+    if (avatar && !existingUser.avatar) existingUser.avatar = avatar;
     if (studentId && !existingUser.studentId) existingUser.studentId = studentId;
-    if (academicYear) existingUser.academicYear = academicYear;
-    await saveDb(db);
+    if (academicYear && !existingUser.academicYear) existingUser.academicYear = academicYear;
+
+    if (sql) {
+      try {
+        await sql`
+          UPDATE users
+          SET google_id = ${googleId},
+              avatar = COALESCE(${avatar || null}, avatar),
+              student_id = COALESCE(student_id, ${studentId || null}),
+              academic_year = COALESCE(academic_year, ${academicYear || null})
+          WHERE id = ${existingUser.id}
+        `;
+      } catch (err) {
+        console.warn('Neon update in authenticateWithGoogle warning:', err);
+      }
+    }
+
+    syncUserToLocalFallback(existingUser);
     return { user: existingUser, isNewUser: false };
   }
 
   // Create new user linked with Google
-  const isDev = email.toLowerCase() === 'archerh456@gmail.com';
+  const isDev = emailClean === 'archerh456@gmail.com';
   const newUser: User = {
-    id: isDev ? 'dev_archerh456' : `user_g_${Date.now()}`,
-    name,
-    email: email.toLowerCase(),
+    id: isDev ? 'dev_archerh456' : `user_g_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    name: name || emailClean.split('@')[0],
+    email: emailClean,
     studentId: studentId || `MED-${Math.floor(1000 + Math.random() * 9000)}`,
     academicYear: academicYear || 'السنة الأولى',
     university: 'كلية الطب',
     role: isDev ? 'DEVELOPER' : 'STUDENT',
     level: isDev ? 'CONSULTANT' : 'STUDENT',
-    points: 0, // Welcome + Google link bonus
-    rank: db.users.length + 1,
+    points: 150, // Welcome + Google link bonus
+    rank: 1,
     streak: 1,
-    avatar: avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${email.toLowerCase()}`,
+    avatar: avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${emailClean}`,
     googleId,
     cognitiveScores: {
-      foundational: 0,
-      clinicalReasoning: 0,
-      pharmacology: 0,
-      pathophysiology: 0,
-      diagnosticsLab: 0,
-      emergencySpeed: 0,
-      evidenceEthics: 0,
+      foundational: 75,
+      clinicalReasoning: 75,
+      pharmacology: 75,
+      pathophysiology: 75,
+      diagnosticsLab: 75,
+      emergencySpeed: 75,
+      evidenceEthics: 75,
     },
-    badges: [],
+    badges: ['google_verified', 'welcome_cadet'],
   };
 
-  db.users.push(newUser);
-  await saveDb(db);
+  if (sql) {
+    try {
+      await sql`
+        INSERT INTO users (id, name, student_id, academic_year, university, email, role, level, points, rank, streak, avatar, google_id, cognitive_scores, badges)
+        VALUES (${newUser.id}, ${newUser.name}, ${newUser.studentId}, ${newUser.academicYear}, ${newUser.university}, ${newUser.email}, ${newUser.role}, ${newUser.level}, ${newUser.points}, ${newUser.rank}, ${newUser.streak}, ${newUser.avatar}, ${newUser.googleId || null}, ${JSON.stringify(newUser.cognitiveScores)}, ${JSON.stringify(newUser.badges)})
+        ON CONFLICT (id) DO UPDATE SET
+          google_id = EXCLUDED.google_id,
+          avatar = EXCLUDED.avatar;
+      `;
+    } catch (err) {
+      console.warn('Neon insert error in authenticateWithGoogle:', err);
+    }
+  }
+
+  syncUserToLocalFallback(newUser);
   return { user: newUser, isNewUser: true };
 }

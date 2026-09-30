@@ -22,20 +22,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
+    // Return sanitized user without sensitive password field
+    const { password: _pwd, ...sanitizedUser } = result.user;
+
     const response = NextResponse.json({
       success: true,
-      user: result.user,
+      user: sanitizedUser,
       message: 'تم تسجيل الحساب بنجاح (+100 نقطة ترحيبية)',
     });
 
-    if (result.user) {
-      response.cookies.set('userId', result.user.id, {
-        path: '/',
-        httpOnly: false,
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30,
-      });
-    }
+    response.cookies.set('userId', result.user.id, {
+      path: '/',
+      httpOnly: false,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 30,
+    });
 
     return response;
   } catch (error: any) {

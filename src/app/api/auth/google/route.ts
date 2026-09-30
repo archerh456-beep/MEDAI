@@ -18,9 +18,11 @@ export async function POST(req: NextRequest) {
       academicYear,
     });
 
+    const { password: _pwd, ...sanitizedUser } = user;
+
     const response = NextResponse.json({
       success: true,
-      user,
+      user: sanitizedUser,
       isNewUser,
       message: isNewUser
         ? 'تم إنشاء حسابك وربطه بـ Google بنجاح (+150 نقطة XP)'

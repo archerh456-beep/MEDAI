@@ -4,7 +4,6 @@ import { getDb, getCurrentUser } from '@/lib/db';
 import ProfileClient from './ProfileClient';
 
 export default async function ProfilePage() {
-  const db = await getDb();
   const cookieStore = await cookies();
   const userId = cookieStore.get('userId')?.value;
 
@@ -19,11 +18,13 @@ export default async function ProfilePage() {
     redirect('/login');
   }
 
+  const db = await getDb();
+
   return (
     <ProfileClient
       initialUser={currentUser}
-      courses={db.courses}
-      badges={db.badges}
+      courses={db.courses || []}
+      badges={db.badges || []}
     />
   );
 }
